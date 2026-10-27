@@ -1,0 +1,53 @@
+Team VISA's Approach for Track 2
+
+Track 2 | IndiaAl Impact GenAI Hackathon
+
+Solution Writeup · 1st place · Sep 25, 2025
+
+What we did?
+
+Hour-of-Day (HoD) Baseline: A simple yet effective baseline was created by calculating the mean meter reading for each hour of the day within each window in the training data. This captures the strong daily seasonality.
+TinyTimeMixer (TTM): I utilized the ibm-granite/granite-timeseries-ttm-r2 pre-trained model for zero-shot forecasting. This provided a powerful, data-driven prediction that complements the simpler baselines.
+LGBM Regressor: A LightGBM model was trained per horizon (0-23 hours) using features derived from the historical 168-hour input windows. This model captures non-linear relationships and interactions between features.
+Ensembling and Stacking:
+Convex Blending: Simple weighted averages of the HoD and TTM predictions were created, with weights (alpha) learned per (building, hour-of-day) pair using closed-form solutions and regularization/shrinkage.
+Multi-Model Stacking: The HoD, TTM, and LGBM predictions (and sometimes simple lags like 24h and 168h) were combined using learned weights (Ridge regression with non-negativity) and bias terms, also learned per (building, hour-of-day).
+Median Ensemble: Taking the median across a selection of strong individual model predictions provided a robust ensemble that is less sensitive to outliers from any single model.
+Calibration and Post-processing:
+Bias Correction: Mean residuals from the training data were calculated per (building, hour-of-day) and applied as an additive bias to the test predictions.
+Window-level Calibration: Techniques were developed to adjust predictions based on recent behavior in the input window, including scaling based on the ratio of the last 24 hours to the first 24 hours (s_win) and an offset based on the difference between the last observation and the first prediction (delta_win), with learned gamma and lambda parameters per building.
+Smoothing: A sum-preserving smoothing kernel was applied to the 24-hour forecast vectors within each window to reduce noise and improve the shape.
+Clipping: Predictions were clipped to robust quantile bounds (e.g., 1st and 99th percentiles) derived from the training data, with fallback levels (per building, then global) to ensure predictions stay within a reasonable range.
+Adaptive Blending: More advanced blending techniques were explored, including hour-gated weights for LGBM and adaptive blending that uses metrics like cosine similarity and energy ratios between the last observed day and the week-ago day to conditionally apply adjustments or blend with weekly copy.
+Guarded KNN: A K-Nearest Neighbors approach was developed to find similar historical windows based on shape similarity and energy, and its predictions were blended cautiously only when they strongly agreed with the base models.
+Fourier Extrapolation: A simple Fourier series model was used to extrapolate from the last 168 hours, and its predictions were blended in a guarded manner when they showed high agreement with the base predictions.
+What moved our score the most?
+
+Per-building × horizon α + bias (with shrinkage + smoothing) — biggest single lift vs any global blend.
+Lag-24 residual correction (guarded) — steady gains on periodic loads.
+Window-level calibration (scale/offset) — fewer ramp errors.
+Light smoothing + robust clipping — lower LB variance without killing signal.
+Robust median ensemble — small but reliable improvement.
+A little LGBM “salt” — helps rare patterns when blended conservatively.
+Fourier guard (on one variant) — suppresses narrow outliers → better stability.
+Files we submitted
+• submission_base_plus_fourier_guarded.csv – base blend with CF α/bias + residuals + Fourier guard + smoothing/clipping.
+• submission_med_lgbm_w235.csv – median ensemble of strong bases with a small LGBM blend (≈0.75 / 0.25 style weighting).
+
+Authors
+Sahana Ganeshvel
+sahanaganeshvel
+
+vijaybalamahalingam
+vijaybalamahalingam
+
+
+Share
+Project Links
+Private resource
+0 upvotes
+
+Kaggle Notebook
+
+Project Files
+IISC Hackathon Team VISA.ipynb

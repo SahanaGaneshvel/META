@@ -1,0 +1,10 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+data/cache/
+outputs/
+# Over GitHub's 100 MB file limit; restore with: python scripts/fetch_data.py
+data/raw/bdg2/electricity_cleaned.csv
