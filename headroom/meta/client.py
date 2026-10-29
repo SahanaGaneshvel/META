@@ -66,9 +66,11 @@ class RoleConfig:
     @classmethod
     def from_env(cls, role: str) -> "RoleConfig":
         prefix = f"HEADROOM_{role.upper()}"
-        provider = _env(f"{prefix}_PROVIDER", "baseten").lower()
+        api_key = _env(f"{prefix}_API_KEY")
+        meta_key = role == "spark" and not api_key and _env("MODEL_API_KEY")  # the name Meta's docs use
+        provider = "meta" if meta_key else _env(f"{prefix}_PROVIDER", "baseten").lower()
         base_url = _env(f"{prefix}_BASE_URL") or PROVIDERS.get(provider, "")
-        return cls(role=role, base_url=base_url, api_key=_env(f"{prefix}_API_KEY"),
+        return cls(role=role, base_url=base_url, api_key=api_key or meta_key or "",
                    model=_env(f"{prefix}_MODEL", DEFAULT_MODELS.get(role, "")))
 
 
