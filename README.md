@@ -52,15 +52,24 @@ Everything in this repository: the data pipeline, simulator, baselines harness, 
 ## Prior work
 The forecasting idea (an hour-of-day baseline improved by gradient boosting) follows our 2025 IndiaAI hackathon entry; all code here was written during this hackathon.
 
-## Run it (Windows, Python 3.12)
+## Run the demo (no API key needed)
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
-copy .env.example .env                                         # add a partner key for Muse Spark Open
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+The control room opens with **Model calls: Replay recorded**: the operator, tariff and bay answers are real Muse Spark and Muse Glimmer responses we recorded (`data/recordings/`), so the full demo runs without credits. Ask the requests listed in `scripts/record_demo.py` to replay them; any other request needs Live mode and a key. The first load simulates the month (about a minute) and caches it. Flip **Cut the site's internet link** to see the operator fail over to Muse Glimmer.
+
+**Live mode:** `copy .env.example .env`, add a key (Meta Model API, or a partner serving Muse Spark Open / Glimmer), and switch Model calls to Live. Keys live only in `.env`, which is never committed.
+
+## Reproduce the results (Windows, Python 3.12)
+```powershell
 .\.venv\Scripts\python.exe scripts\fetch_data.py               # restores the 167 MB BDG2 file
 .\.venv\Scripts\python.exe -m headroom.data.pipeline           # builds data/processed (~5 s)
 .\.venv\Scripts\python.exe -m pytest -q                        # invariants, safety fuzz test, agent validation
-.\.venv\Scripts\python.exe scripts\precompute_forecasts.py 2017-06   # walk-forward forecasts for a month
+.\.venv\Scripts\python.exe scripts\precompute_forecasts.py 2017-05 2017-07 2017-08 2017-09 2017-10   # walk-forward forecasts (2017-06 ships with the repo)
+.\.venv\Scripts\python.exe scripts\final_benchmark.py                 # held-out benchmark table above
+.\.venv\Scripts\python.exe scripts\capacity_study.py test             # hosting capacity
 ```
 
 ## Code layout
