@@ -48,7 +48,6 @@ def main(role: str) -> None:
     if role == "spark":
         for doc in ("cpau-e-4-tou-2026", "cpau-e-7-tou-2026"):
             def read(doc=doc):
-                from headroom.agent import tariff_reader
                 out = site.read_tariff(ReadTariff(document=doc))
                 print(json.dumps(out.get("verification"), indent=1, default=str))
             step(f"tariff {doc}", read)
