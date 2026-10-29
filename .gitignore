@@ -12,3 +12,4 @@ data/forecasts/
 data/*.log
 data/results/*.pkl
 data/forecasts_v1/
+data/spend.json

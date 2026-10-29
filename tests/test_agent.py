@@ -63,3 +63,17 @@ def test_loop_recovers_from_a_bad_call():
     assert site.calls == [12]
     assert [s.ok for s in turn.steps if s.kind == "tool"] == [False, True]
     assert "0.4%" in turn.answer
+
+
+def test_spend_guard_blocks_live_calls(tmp_path, monkeypatch):
+    import pytest
+
+    from headroom.meta import client as mc
+
+    monkeypatch.setattr(mc, "SPEND_LOG", tmp_path / "spend.json")
+    monkeypatch.setenv("HEADROOM_BUDGET_USD", "1")
+    (tmp_path / "spend.json").write_text('{"usd": 1.5}')
+    c = mc.ModelClient("spark", mode="live", recordings=tmp_path)
+    with pytest.raises(mc.BudgetExceeded):
+        c.chat([{"role": "user", "content": "hi"}])
+    assert mc._charge({"prompt_tokens": 1_000_000, "completion_tokens": 0}) == pytest.approx(1.5 + 1.25)

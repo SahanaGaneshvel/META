@@ -8,6 +8,9 @@ Every call is keyed by a hash of its full request. HEADROOM_MODEL_MODE:
     auto    replay a recording if one exists, otherwise call live and record (default)
     live    always call the model, and record
     replay  never call the network; a missing recording is an error (the hosted demo's mode)
+
+Spend guard: every live call's token usage is priced and added to data/spend.json; once the total
+reaches HEADROOM_BUDGET_USD (default $100) no further live call is made. Replays cost nothing.
 """
 from __future__ import annotations
 
@@ -61,6 +64,36 @@ class RecordingMissing(RuntimeError):
     pass
 
 
+class BudgetExceeded(RuntimeError):
+    pass
+
+
+SPEND_LOG = DATA / "spend.json"
+
+
+def _price(name: str, default: float) -> float:
+    try:
+        return float(_env(name, str(default)))
+    except ValueError:
+        return default
+
+
+def spent_usd() -> float:
+    return json.loads(SPEND_LOG.read_text(encoding="utf-8"))["usd"] if SPEND_LOG.exists() else 0.0
+
+
+def _charge(usage: dict | None) -> float:
+    """Add a call's estimated cost to the running total. Prices are per million tokens (.env)."""
+    usage = usage or {}
+    cost = (usage.get("prompt_tokens", 0) * _price("HEADROOM_USD_PER_M_INPUT", 1.25)
+            + usage.get("completion_tokens", 0) * _price("HEADROOM_USD_PER_M_OUTPUT", 4.25)) / 1e6
+    total = spent_usd() + cost
+    SPEND_LOG.parent.mkdir(parents=True, exist_ok=True)
+    SPEND_LOG.write_text(json.dumps({"usd": round(total, 4), "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}),
+                         encoding="utf-8")
+    return total
+
+
 class ModelClient:
     """`chat()` mirrors chat.completions.create and returns the response as a plain dict."""
 
@@ -95,9 +128,14 @@ class ModelClient:
             return json.loads(path.read_text(encoding="utf-8"))["response"]
         if self.mode == "replay":
             raise RecordingMissing(f"no recording for this request ({path.name}); run once in live mode")
+        budget = _price("HEADROOM_BUDGET_USD", 100.0)
+        if spent_usd() >= budget:
+            raise BudgetExceeded(f"spend guard: ${spent_usd():.2f} used of the ${budget:.0f} budget; "
+                                 f"no more live calls (raise HEADROOM_BUDGET_USD in .env to continue)")
         started = time.perf_counter()
         response = self._openai().chat.completions.create(model=self.config.model, messages=messages, **kwargs)
         payload = response.model_dump(exclude_none=True)
+        _charge(payload.get("usage"))
         self.recordings.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"request": request, "response": payload,
                                     "seconds": round(time.perf_counter() - started, 2),
