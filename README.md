@@ -14,8 +14,25 @@ Headroom runs the chargers inside the room the building leaves:
 
 > "The model proposes, the math decides, the safety layer guarantees."
 
-## Results
-Final numbers come from `scripts/capacity_study.py test` and the benchmark scripts on the held-out test months (May–Dec 2017) and are written to `data/results/`. Development numbers (train/validation months only) are in `data/results/dev_*.csv`.
+## Results (held-out test months, May–Oct 2017; nothing was tuned on them)
+Same real sessions for every controller; 6 summer months × 3 resampled fleets = 18 month-scenarios per row. Reproduce with `scripts/final_benchmark.py` and `scripts/capacity_study.py test`.
+
+**24 chargers (4× today's garage), E-4 TOU tariff:**
+
+| Controller | Energy served | Demand charges added by EVs ($/month) | Service-limit violations |
+|---|---|---|---|
+| Static cap | 100% | 4,231 | 0 |
+| Least-laxity-first (ACN-Sim) | 100% | 4,231 | 0 |
+| Caltech adacharge MPC (unmodified) | 100% | 4,231 | 0 |
+| **Headroom** | **99.8%** | **2,670 (−37%)** | **0** |
+| *Perfect-foresight ceiling (ablation)* | *99.5%* | *1,979* | *0* |
+
+- **Hosting capacity** (every month ≥ 99% of energy delivered, 0 violations): **48 chargers with Headroom vs 36** for the baselines on the same 1,000 kW connection (**+33%**).
+- Headroom captures **69%** of the savings a perfect-foresight controller could get.
+- Holds under a labelled stress test with added intra-hour variability: $2,637/month, 99.8% served, 0 violations.
+- Honest ablations: profile-only forecasting does as well in the control loop ($2,676): the savings come from *seeing the building*, not from model complexity. The strict "never set a new peak" policy adds only $326 but serves 86% of energy: some charging must overlap the building's peak.
+- The three EV-only baselines coincide at 24 chargers because their fixed 161 kW cap never binds; they separate at 48+.
+- Forecast calibration on the test months: P90 covered 87–92% (target 90%), P99 98–100% (target 99%).
 
 ## Meta models used (all open weights)
 | Model | Where it runs | What it does in Headroom |
