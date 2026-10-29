@@ -1,118 +1,110 @@
 # Headroom — strategy to win the Indie track
 
-**Market: United States first**; India is future scope (section 9).
+**Market: United States first**; India is future scope (section 9). Revised 2026-10-29 after reading the full participant guide and losing access to the Meta Model API (no usable card): every model job now runs on **Meta's open-weight models** (Muse Spark Open, Muse Glimmer) through partner inference.
 
-## 1. Honest verdict on the application idea
+## 0. How the competition is judged (what we optimise for)
 
-The idea is strong: it controls a real physical system, you have a proven forecasting record, it can be measured, and it puts hard safety limits under an LLM. That is a top-tier foundation. As written, though, a sharp judge would find five holes. Each one costs points under the actual judging weights (Impact 30, Meta tooling 25, Demo 25, Technical depth 20).
+- Stage 1 pass/fail: fits a problem statement and uses Meta models in work built during the hackathon. Ours: **Push the Frontier → energy → control a physical system.**
+- Stage 2: each criterion 0–10. **Impact 30 · Meta tooling 25 · Demo 25 · Technical depth 20.**
+- Stage 3: top 5 per track; final judges **watch the 3-minute videos live** (Nov 9) and re-rank. The video decides first place.
+- Judges use the video, the code **and the live product**, so the hosted demo must keep working Nov 5–8 even if credits run out.
+- Only work built during the hackathon may be shown, and it must be clearly identifiable. Repo history starts 2026-10-27 (after kickoff). The IndiaAI notebook is prior work: disclosed, never demoed.
+- Bonus prizes we qualify for by design: **Best Build on Meta Open Weight Models ($10K)**, **Best Agentic Use-Case ($5K)**, Most Viral on X ($20K), Community Vote ($10K).
 
-| # | Hole a judge will find | Why it costs points | Fix |
-|---|---|---|---|
-| 1 | **The baseline is too easy to beat.** We benchmark against static caps. | We measured this (`scripts/baselines_check.py`): ACN-Sim's least-laxity-first scheduler **and** Caltech's MPC (`adacharge.AdaptiveSchedulingAlgorithm`) both get **0 violations** (peaks of 147 and 150 kW vs 213 kW uncontrolled), out of the box. "Zero violations vs. a static cap" is a solved problem. | Benchmark against the **strongest open baselines**: static cap, LLF, and adacharge MPC. Put the novelty where they are blind (row 2). |
-| 2 | **The forecast's value isn't pinned down.** | ACN-style schedulers assume a *fixed* EV capacity. Real sites share one meter with an *uncertain* building load, and the bill depends on that combined 15-minute peak. The forecast matters for three decisions those schedulers can't make: (a) **promises**: can I guarantee the fleet 80% by 6 am? (b) **admission**: can I accept this booking? (c) **sizing**: how many chargers can I add? | Make **probabilistic hosting capacity** the headline: "this service can safely host N more chargers at <1% risk of setting a new demand peak." It's one number, it's what the owner actually pays for, and only a probabilistic forecast can produce it. |
-| 3 | **Muse Spark could look like a chat wrapper.** "Use of Meta tooling" (25%) rewards going *beyond basic integration*. | Tool-calling chat is the default integration most entrants will submit. | Give every model job a **verifier** and a number: tariff PDF → strict-schema `TariffSpec` → **checked by reproducing a bill**; event search → forecast adjustment **accepted only within ensemble bounds**; camera → SAM 3.1 tracks + Spark video reasoning → **blocked-bay detection**. Report each job's accuracy. |
-| 4 | **The camera's "arrival signal" is weak.** | Most sites don't have queues; the forecast already predicts arrivals. | Use the camera for what meters *can't* see: **bays occupied but not charging** (a petrol car in an EV bay, or a finished EV left idle). SAM 3.1 tracks vehicles inside bay polygons, the charger reports no session → "bay 4 blocked 38 min." The controller removes the bay from the plan. |
-| 5 | **The data didn't match the story** (Indian rules, US data). | Judges notice mixed sources. | **Solved by going US-first.** Bay Area drivers (Palo Alto WEBSTER) + Bay Area building (Berkeley) + Palo Alto tariff + California grid events, same years (2016–2017). Every choice is backed by a measured audit: see `docs/DATA_SPEC.md`. |
-| 6 | **Search leaks the future.** | Meta `web_search` has **no date filter** (checked in the docs). Searching while replaying a past day lets the model read the outcome, which invalidates the evaluation. | Two modes. **Backtest**: a frozen, cited calendar of *real* 2016–2017 events (CAISO Flex Alert grid-emergency days, federal holidays); no live search. **Live**: real-time weather (Open-Meteo), California grid state (CAISO), and current Flex Alerts/notices via search, with citations. (Stanford game days were **tested and rejected**: no effect on charging, 0.97×; see DATA_SPEC.) |
-| 7 | **"Ages the transformer" is a claim without a model.** | Technical depth (20%) rewards real craft. | Add the IEEE C57.91 thermal model (top-oil → hot-spot → loss of life). Report **transformer ageing (equivalent hours)**. About 60 lines; few entrants will have it. |
-| 8 | **Scope is too wide for one person in 10 days.** | A half-finished system loses to a polished narrow one. | Strict cut-list (section 6). Feature-freeze at the end of day 7. |
+## 1. What a sharp judge would find in the original idea, and the fix
 
-**Can this win first place?** No plan can promise that. With these fixes it scores strongly on every criterion, and it has something most entries won't: a physical system, a hard safety guarantee, and real numbers. That is how you get into the top five. Execution and the demo video decide the order within it.
+| # | Hole | Fix |
+|---|---|---|
+| 1 | "Zero violations vs. a static cap" is solved: we measured that ACN-Sim's LLF **and** Caltech's adacharge MPC both get 0 violations out of the box (`scripts/baselines_check.py`). | Benchmark against **static cap, LLF and adacharge MPC**; put the novelty where they are blind (row 2). |
+| 2 | The forecast's value isn't pinned down. | EV schedulers assume a *fixed* EV capacity. Real sites share one meter with an *uncertain* building load, and the bill depends on the combined 15-minute peak. Headline = **probabilistic hosting capacity**: "this site can safely host N more chargers at <1% risk of setting a new demand peak." |
+| 3 | The model could look like a chat wrapper. | Every model job has a **verifier and a number** (section 4). "The model proposes, the math decides, the safety layer guarantees." |
+| 4 | Queue counting from a camera is a weak signal. | Use video for what meters can't see: **bays occupied but not charging** (28.2% of plugged-in time is idle: measured). |
+| 5 | Mixed India/US story. | One coherent US site, same years, every choice backed by an audit (`docs/DATA_SPEC.md`). |
+| 6 | A "match-night surge" isn't real here: Stanford game days showed **no effect (0.97×)**. | Replay real **CAISO Flex Alert** heat days instead (building 4–9 pm peak **+10%**, measured). |
+| 7 | "Ages the transformer" has no model. | IEEE C57.91 thermal model → **loss of life (equivalent hours)**. |
+| 8 | Prior forecasting code can't be shown as new work. | **Rebuild** the forecaster during the hackathon (same proven approach, new code, plus calibrated quantiles); disclose the approach in the README. |
 
 ## 2. The US problem in one number
 
-Palo Alto's medium-commercial time-of-use tariff (CPAU **E-4 TOU**, effective 2026-07-01, in `data/docs/`) bills **two demand charges** on the single highest **15-minute** average kW of the month:
+Palo Alto's CPAU **E-4 TOU** (effective 2026-07-01, `data/docs/`) bills two demand charges on the highest **15-minute** average kW of the month. Summer: **$30.18/kW** peak-period (4–9 pm weekdays) + **$21.27/kW** max demand (any time). A single +50 kW spike for 15 minutes at 6 pm on a summer weekday adds 50 × $51.45 = **$2,572** to that month's bill; the 12.5 kWh it delivers costs $2.69. **The spike costs about 950× its energy.** That's why owners stop adding chargers, and it's the video's opening line.
 
-| Summer (May–Oct) | Rate |
-|---|---|
-| Peak-period demand (4–9 pm weekdays) | **$30.18/kW** |
-| Max demand (any time) | **$21.27/kW** |
-| Peak energy | $0.21556/kWh |
+## 3. Pitch (use this wording everywhere)
 
-A single unmanaged 15-minute spike of +50 kW at 6 pm on a summer weekday adds 50 × ($30.18 + $21.27) = **$2,572 to that month's bill**. The energy in that spike (12.5 kWh) costs $2.69. **The spike costs about 950× the energy it delivers.** That is why US site owners stop adding chargers, and it's the line to open the video with.
+> **Headroom lets a site add EV chargers on the grid connection it already has, without a service upgrade and without ever setting a new demand-charge peak, and tells the owner in advance exactly how many it can safely add.**
+> A probabilistic forecaster sizes the headroom, a verified controller enforces the limits, and Muse Spark Open runs the site as its operator: it reads the utility's tariff, takes requests by voice, watches the bays, and answers "can I add twelve more chargers?" from simulation, not guesswork. If the network drops, Muse Glimmer keeps the site running.
 
-Two details the agent should find in the PDF, not hard-coded:
-- The demand window is **15 minutes**, the same as our control step, so the optimiser targets exactly what the meter bills.
-- "If the Customer's load is intermittent or subject to fluctuations, the City may use a **5-minute** interval" (E-4 sheet). EV load fluctuates, so the agent should flag this risk.
+Headline numbers (hypotheses until measured on the test split):
+- **Additional chargers hosted** on the same service at <1% risk of a new monthly peak, vs. static cap, LLF and adacharge MPC.
+- **Demand-charge dollars saved per month** and total bill under E-4 TOU.
+- **Violations: 0** in 10,000 fuzzed plans, including adversarial model outputs.
+- Energy delivered / requested, transformer loss of life (h), peak 15-min kW.
+- Agent accuracy: tariff fields correct (%), bill reproduced within ±1%, blocked-bay precision/recall, fine-tuned Glimmer before/after.
 
-## 3. Revised pitch (use this wording everywhere)
+## 4. Meta models: every job is load-bearing and checked
 
-> **Headroom finds the spare capacity in the grid connection a site already has, and runs EV chargers inside it, without ever setting a new demand peak.**
-> A probabilistic forecaster sizes the headroom, a verified controller enforces the limits, and Muse Spark acts as the site's operator: it reads the utility's tariff, watches for demand shocks, takes requests in plain language, and answers "can I add six more chargers?" from simulation, not guesswork.
+All calls go through one OpenAI-compatible client; provider (Baseten, Fireworks, Modal, Groq) is configuration. Every model response used in the demo is **recorded and replayable**, so the hosted demo survives quota loss.
 
-Headline numbers to produce (targets are hypotheses until measured):
-- **Additional chargers hosted on the same service** at <1% risk of a new monthly peak, vs. static cap, LLF and adacharge MPC.
-- **Demand-charge dollars saved per month** and **total bill ($)** under CPAU E-4 TOU.
-- **Violations: 0** in 10,000 fuzzed plans, including adversarial LLM outputs.
-- **Energy delivered / energy requested**, **transformer loss of life (h)**, **peak 15-min kW**.
-- **Agent accuracy**: tariff fields extracted correctly (%), bill reproduced within ±1%, blocked-bay detection precision/recall.
-
-## 4. What each Meta model does (each job is load-bearing and checked)
-
-| Model | Job | How it's verified |
+| Model | Job | Verifier |
 |---|---|---|
-| **Muse Spark 1.3** (PDF input + structured output) | CPAU tariff sheet → strict JSON `TariffSpec` (seasons, ToU windows, two demand charges, 15-min interval, holiday rule, 5-min clause) | Recomputes a bill from metered data; field-level accuracy against a hand-labelled gold file; tested on E-4 TOU **and** E-7 TOU (does it generalise?) |
-| **Muse Spark** (tool calling) | Operator agent: plain language → `set_requirement`, `replan`, `simulate_expansion`, `explain_plan` | Every tool call is type-checked; the safety layer re-checks every plan |
-| **Muse Spark** (`web_search`) | Live mode: current CAISO Flex Alerts, heat-wave warnings and grid notices → proposed tighter 4–9 pm limits or demand multiplier, with citations | Accepted only inside forecast-ensemble bounds; backtested on the 6 real 2016–2017 Flex Alert days |
-| **SAM 3.1** (video, text prompt "car") | Tracks vehicles in bay polygons → occupied-but-not-charging detection | Precision/recall on a small labelled clip set |
-| **Muse Spark** (video understanding) | Second opinion on flagged bays ("petrol sedan, no cable") | Shown to the operator only, never used for control |
-| **Muse Code** | Our coding agent during the build | Mentioned in the README and video |
-| **Open weights on Baseten/Modal** (optional) | Offline fallback agent | Demo: pull the network, and the controller stays safe |
+| **Muse Spark Open** (tool calling, strict JSON) | Operator agent: plain language or voice → `set_requirement`, `replan`, `simulate_expansion`, `explain_plan`, `read_tariff` | Every tool call is schema-checked; the safety layer re-checks every plan; fuzz test with adversarial outputs |
+| **Muse Spark Open** (text + page images, 1M context) | Tariff document → strict `TariffSpec` JSON (seasons, ToU windows, both demand charges, 15-min interval, holiday rule) | **Reproduces a month's bill** from metered data within ±1%; field accuracy against hand-checked gold; second tariff (E-7 TOU, then PG&E's subscription-style EV tariff) to show it generalises |
+| **Muse Spark Open** (tools: CAISO alerts, live weather) | Grid-stress events → proposed tighter 4–9 pm ceiling or demand multiplier, with citations | Accepted only inside the forecast's calibrated bounds; backtested on the real 2016–2017 Flex Alert days with a frozen calendar (no leakage) |
+| **Muse Spark Open** (video input) | Bay camera → "occupied but not charging" bays | Cross-checked against charger session data; precision/recall on labelled clips |
+| **Muse Spark Open** (audio input) | The site manager speaks a request; no separate speech model | Same tool validation as typed requests |
+| *(optional)* **Meta MMS-TTS** (open weights) | Spoken replies, only if time allows; default is the browser's built-in voice, which isn't a model call | — |
+| **Muse Glimmer** | Offline backup operator ("pull the network, the site stays safe") | Same tools and validators |
+| **Muse Glimmer, fine-tuned** (stretch) | Spark Open labels synthetic tariffs; only labels that **reproduce the bill exactly** become training data; LoRA-tune Glimmer | Before/after accuracy on the real CPAU and PG&E tariffs |
+| **Muse Code** | Coding agent during the build | Mentioned in README and video |
 
-Design rule we repeat in the video: **the LLM proposes, the math decides, the safety layer guarantees.**
+**Runtime rule (from Meta):** every model the project calls at runtime must be a Meta model; open Meta models count however they're run. So **no TinyTimeMixer, Whisper or third-party voices**. Models we train ourselves on our own data (LightGBM quantile forecaster) are our code, not third-party models. The README lists every Meta model used and where.
 
 ## 5. Architecture
 
 ```
- Tariff PDFs ─┐                      ┌─ Camera (MP4) ─► SAM 3.1 ─► bay occupancy/blocked
- Notices ─────┤                      │
- Operator ────┼─► Muse Spark agent ──┤  tools (typed, validated)
- Web search ──┘   (proposes)         │
-                                     ▼
- History ─► Probabilistic forecaster ─► MPC optimiser (cvxpy/HiGHS, 15-min, P90 headroom,
-            (HoD + TTM + LightGBM,          │            two demand charges + ToU energy)
-             stacked, conformal quantiles)  ▼
-                                   DETERMINISTIC SAFETY LAYER  (measured load feedback,
-                                   service kW limit, 15-min demand ceiling, transformer hot-spot)
-                                            │  nothing above can override
-                                            ▼
-                         OCPP 2.0.1 SetChargingProfile ─► simulated chargers (ACN-Sim)
+ Tariff docs ─┐                       ┌─ Bay camera (MP4) ─► Spark Open video ─► blocked bays
+ Grid alerts ─┤                       │
+ Operator ────┼─► Spark Open agent ───┤  typed, validated tools        (Glimmer if offline)
+ (voice/text) ┘   (proposes)          │
+                                      ▼
+ History ─► Probabilistic forecaster ─► MPC planner (LP, HiGHS, 15-min, ceiling on the
+            (hour-of-day + LightGBM        │          building's calibrated quantile, ToU cost)
+             quantiles, conformal)         ▼
+                                  DETERMINISTIC SAFETY LAYER (last measured load + ramp margin,
+                                  service kW limit, demand ceilings, port caps)
+                                           │  nothing above can override
+                                           ▼
+                        OCPP 2.0.1 SetChargingProfile ─► simulated chargers
 ```
 
-## 6. Demo storyboard (≈3-minute video; the live demo follows the same script)
+## 6. Demo storyboard (3-minute video; the hosted demo follows the same script)
 
-1. **0:00–0:20 The 950× problem.** A mixed-use building in downtown Palo Alto: one meter, 12 chargers in the garage, owner wants 24. One 15-minute spike costs $2,572; a service upgrade takes months and costs a lot.
-2. **0:20–0:50 The agent reads the tariff.** Drop in the real CPAU E-4 TOU PDF. The agent extracts both demand charges, the ToU windows and the 15-minute rule, flags the 5-minute clause, and reproduces a month's bill to within 1%.
-3. **0:50–1:40 Heat-wave grid emergency (replay of real Wed 21 June 2017, a CAISO Flex Alert day).** The building's 4–9 pm peak really rose +10% (799 vs 728 kW) and EV demand after 3 pm rose about 9%, both in the $30.18/kW window. Split screen of three controllers (static cap, adacharge MPC, Headroom) at 4× today's charger count. The agent knows the Flex Alert, the camera flags two blocked bays, and the agent re-plans and explains. Static cap leaves cars uncharged; MPC, blind to the building load, sets a new monthly peak; Headroom stays under it.
-   Then a **live cut**: tonight's real Palo Alto weather forecast and the California grid's demand right now.
-4. **1:40–2:10 "Fleet vans need 80% by 6 am."** Plain language in; the agent accepts with a probability, or pushes back ("72% achievable at P90; here's why").
-5. **2:10–2:40 "Can I add 12 more chargers?"** Monte Carlo hosting capacity: "Yes to 8 at 0.4% risk; 12 needs a 40 kWh battery or a service upgrade."
-6. **2:40–3:00 Proof.** Benchmark table, the 10,000-plan fuzz test with 0 violations, the architecture, and a closing line, plus a two-second future-scope note: "any utility tariff, next: India."
+1. **0:00–0:15 Hook.** "This 15-minute spike cost $2,572." One meter, 24 chargers wanted, the service is full on paper.
+2. **0:15–0:45 The agent reads the tariff.** Drop in the real CPAU PDF; Spark Open extracts both demand charges and the windows; the bill reproduces within 1%.
+3. **0:45–1:35 Real heat-wave day (Wed 21 June 2017, CAISO Flex Alert).** Three controllers side by side at 4× today's chargers, with a live bill counter: static cap leaves cars uncharged; adacharge MPC, blind to the building, sets a new monthly peak; Headroom stays under it. The camera flags a blocked bay; the agent re-plans and explains.
+4. **1:35–2:00 Voice request.** "Fleet vans need 80% by 6 am." The agent accepts with a probability, or pushes back.
+5. **2:00–2:20 Pull the network.** Glimmer takes over; the site stays safe.
+6. **2:20–2:45 "Can I add 12 more chargers?"** "Yes to 8 at 0.4% risk; 12 needs a battery or an upgrade."
+7. **2:45–3:00 Proof.** Benchmark table, 10,000 fuzzed plans with 0 violations, "built during the hackathon" card, future scope (any utility; India next).
 
-## 7. Scope (cut-list)
+## 7. Scope
 
-**Must (days 1–7):** site simulator (building load + EV sessions + service limit + 15-min demand + transformer thermal model) · four baselines · probabilistic forecaster with backtest · MPC + safety layer + fuzz tests · agent with four tools · tariff-PDF extraction + bill check · hosting-capacity simulation · control-room UI.
-**Should (days 7–8):** SAM 3.1 blocked-bay detection · live search mode · OCPP output.
-**Won't:** real hardware, mobile app, multi-site, India site (future scope), Muse Image, driver payments.
+**Core (by the night of Nov 1; scores ≈8.5 alone):** site simulator (building + EV + service limit + 15-min demand + transformer) · baselines (static cap, LLF, adacharge MPC) · probabilistic forecaster with backtest · MPC + safety layer + fuzz tests · Spark Open agent with tools and record/replay · tariff extraction + bill check · hosting-capacity Monte Carlo · control-room UI.
+**10-level extras (Nov 2–3, strictly in this order; whatever isn't done by end of Nov 3 is cut):** hosted demo with replay → ablations + fault injection → second tariff (PG&E) → voice + bay video → Glimmer offline + fine-tune → OCPP output.
+**Won't:** real hardware, mobile app, multi-site, India site, driver payments.
 
 ## 8. Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
-| API quota or outage during the live demo | Cache every agent response from rehearsals; a "replay cached" switch in the UI; record the video by day 9 |
-| The $150 of credits runs out | `reasoning_effort` "low" for routine calls; batch tests; avoid `-contributor` models for anything private |
-| SAM video format or limits differ from the docs | Spike on day 1; fall back to per-frame image segmentation at 1 fps |
-| ~~Game days show no demand effect~~ | **Measured: no effect (0.97×), so dropped.** Replaced by Flex Alert heat days, where a real effect was measured (building +10%, EV after 3 pm +9%) |
-| Fixes don't beat adacharge MPC on the headline | Headline = hosting capacity under *uncertain building load*, which MPC doesn't model. Report honestly either way |
-| Laptop (8 GB RAM, no GPU) too slow | TTM runs on CPU; cap Monte Carlo at about 500 scenarios; use Modal credits if needed |
-| 2026 tariff applied to 2016–2017 load data | State it plainly: "today's tariff, historical behaviour" (the standard practice in bill-impact studies) |
+| Partner credits arrive late or not at all | All model code runs against any OpenAI-compatible provider; develop against whichever key arrives first (Groq/Fireworks/Baseten); recorded responses keep the demo working |
+| API outage or quota during judging | Hosted demo defaults to replaying recorded responses; "go live" switch |
+| Headroom doesn't beat adacharge MPC on a metric | Headline is hosting capacity under *uncertain building load*, which MPC doesn't model. Report honestly either way |
+| Laptop (8 GB, no GPU) too slow | LP planner on HiGHS; Monte Carlo capped; Modal for heavy jobs |
+| Running out of time | Core first; extras gated; feature freeze Nov 3 night; video Nov 4 |
+| 2026 tariff on 2016–2017 behaviour | Stated plainly: "today's prices, historical behaviour" |
 
 ## 9. Future scope (README + one line in the video)
 
-- **India.** The architecture is utility-agnostic because the agent reads the tariff. Next market: Tamil Nadu (TNERC EV time-of-day slots, kVA sanctioned-load limits, Chennai malls and fleet depots), where grid connections are even tighter and EV growth is fastest. This is the founder's own city.
-- Other US utilities (PG&E BEV, SCE TOU-EV): the same agent, different PDF.
+- **India**: the agent reads the tariff, so the architecture is utility-agnostic. Next: Tamil Nadu (TNERC EV time-of-day slots, kVA sanctioned-load limits, Chennai malls and fleet depots).
+- Other US utilities (PG&E BEV, SCE TOU-EV): same agent, different document.
 - Batteries and solar as extra controllable assets; real OCPP hardware pilots.
-
-## 10. Rules
-
-Read the Official Rules for team size, submission format and video length. The IndiaAI forecasting approach is prior work from 2025: reuse it only as the rules allow, and keep it **disclosed in the README**.

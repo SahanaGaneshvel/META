@@ -2,6 +2,15 @@
 
 Decided after auditing the data. Rule: **every number in the video traces to a real dataset, and every assumption is listed here.** If code and this file disagree, fix one of them the same day.
 
+## 0. Real data only (owner's rule, 2026-10-29)
+
+- **Every input is real recorded data**: Palo Alto charging sessions, a UC Berkeley building's metered load, station weather, Palo Alto's published tariff PDFs, CAISO's real Flex Alert dates. No synthetic dataset is used anywhere in a headline number.
+- **Preprocessing only transforms real data** (sections 3A–3D): parsing, time-zone handling, cleaning, gap filling of ≤ 3 h, and an energy-preserving hourly → 15-minute split. Each step and every count it changed is in `data/processed/REPORT.md`.
+- **One unavoidable counterfactual**: "what if the garage had N ports?" The real garage had 6. Extra ports are filled by **re-using real recorded sessions** from neighbouring days (section 3E): every simulated car is a real car with its real arrival, departure and energy; only its placement on an extra port is resampled. N = 6 reproduces the real garage exactly.
+- **Stress tests are labelled as such**: the optional intra-hour noise (3C step 4) is never on in a headline number.
+- **Tariff fine-tuning data** (stretch goal) comes from real US tariffs (OpenEI Utility Rate Database), not generated documents.
+
+
 ## 1. Datasets chosen, with evidence
 
 | Role | Dataset and exact subset | Why this one (measured) | Licence |
@@ -63,14 +72,14 @@ Per 15-minute interval: plugged-in count, idle-occupied count, and **uncontrolle
 1. BDG2 timestamps are local wall-clock with 24 rows on DST days (verified), so localise with explicit DST handling: shift the non-existent spring-forward hour and interpolate the repeated fall-back hour.
 2. **Gaps**: ≤ 3 h are interpolated linearly; longer gaps flag the day `imputed_day`, and those days are excluded from all metrics.
 3. **Hourly → 15-min**: mean-preserving interpolation (PCHIP on cumulative energy, then differenced), so each hour's energy is preserved exactly.
-4. **Unobservable intra-hour variation**: add AR(1) noise with σ ∈ {0, 2%, 5%} as a sensitivity analysis. Headline at σ = 2%; show robustness across all three.
+4. **Unobservable intra-hour variation**: headline runs use the real series as is (σ = 0). AR(1) noise with σ ∈ {2%, 5%} is a **labelled stress test** only, never a headline number.
 
 ### D. Site assembly → `site_15min.parquet`
 building + EV + weather + calendar (hour, day of week, holiday, flex_alert, CPAU season with summer = May 1–Oct 31, ToU period).
 **Service limit = 1,000 kW** (assumed 1,000 kVA transformer at power factor ≈ 1; this is also the E-4 TOU upper bound). It's a parameter, so we also report 900 and 1,100 kW.
 
 ### E. Scale-up scenarios (hosting capacity)
-N-port sites are built by **resampling real Webster port-days from the same calendar date** (bootstrap across the 6 ports). This keeps real arrival patterns and the same-day weather link. N ∈ {6, 12, 18, …, 60}.
+N-port sites re-use **real recorded Webster port-days**: the date's own 6 ports come first (so N = 6 is the real garage), and each extra port takes a real port-day from the **same day type (workday or not) within ±7 days**, shifted to the target date at the same local clock time. Drawing from neighbouring days (not only the same date) keeps a 36-port fleet from being six copies of the same six cars. Overlapping stays on a virtual port are cut at the next arrival. N ∈ {6, 12, 18, 24, 36, …}. Implemented in `headroom/sim/scenario.py`.
 
 ### F. Splits (time-ordered, no leakage)
 | Split | Period | Purpose |
@@ -84,7 +93,7 @@ Within test: walk-forward, refitting monthly on all earlier data (as it would be
 ### G. Leakage rules
 - Web search is **off** in the backtest; its role is played by the frozen event calendar.
 - Every feature at time t uses data ≤ t only.
-- Backtest weather = observed temperature **plus forecast-error noise** (σ ≈ 1.5 °C day-ahead), so we don't pretend to have a perfect forecast.
+- **No future weather in backtests**: forecasts use only data measured before the issue time (load, temperature lags, calendar). Real weather *forecasts* for 2016–2017 aren't archived, and adding made-up forecast noise would be synthetic. Live mode uses the real Open-Meteo forecast.
 
 ## 4. Known issues (all stated in the README)
 - **Distribution shift**: Webster sessions fall about 30% from 2017 Q2 to Q4 (stations #2 and #3 most). This is real, falls in the test period, and the forecaster must adapt. We report it.
