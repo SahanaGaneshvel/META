@@ -28,6 +28,7 @@ from ..config import DATA, ROOT
 RECORDINGS = DATA / "recordings"
 
 PROVIDERS = {  # base URLs; model ids come from .env because each partner names them differently
+    "meta": "https://api.meta.ai/v1",  # Meta Model API (muse-spark-1.3)
     "baseten": "https://inference.baseten.co/v1",
     "fireworks": "https://api.fireworks.ai/inference/v1",
     "groq": "https://api.groq.com/openai/v1",
