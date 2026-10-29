@@ -10,8 +10,18 @@ Every call is keyed by a hash of its full request. HEADROOM_MODEL_MODE:
     live    always call the model, and record
     replay  never call the network; a missing recording is an error (the hosted demo's mode)
 
-Spend guard: every live call's token usage is priced and added to data/spend.json; once the total
-reaches HEADROOM_BUDGET_USD (default $100) no further live call is made. Replays cost nothing.
+Spend guard (the Meta Model API has no hard cap of its own; usage past the credits is billed to the
+card). Every live call goes through ModelClient.chat, which:
+    - books the worst case for the call (WORST_CALL_USD, $4.50: Muse Spark's whole 1,048,576-token
+      context billed at the output rate) in data/spend.json *before* sending it, and
+      refuses if that would pass HEADROOM_BUDGET_USD (default $50, and never above HARD_CAP_USD, which
+      .env cannot raise: $140 of the $150 credits);
+    - after the response, replaces the booking with the cost of the reported token usage (prices
+      per million tokens in .env); a response without usage keeps the worst case;
+    - keeps the booking for any call that fails after it may have reached the server, and refunds it
+      only when the connection never opened;
+    - never retries on its own (the SDK's silent retries would each be billed).
+Replays and models on localhost cost nothing. data/spend.json is the running total: don't delete it.
 """
 from __future__ import annotations
 
@@ -71,6 +81,8 @@ class BudgetExceeded(RuntimeError):
 
 
 SPEND_LOG = DATA / "spend.json"
+HARD_CAP_USD = 140.0  # below the $150 Meta credits; edit the code, not .env, to change it
+WORST_CALL_USD = 4.5  # 1,048,576 tokens x $4.25/M: no single Muse Spark call can cost more
 
 
 def _price(name: str, default: float) -> float:
@@ -84,16 +96,30 @@ def spent_usd() -> float:
     return json.loads(SPEND_LOG.read_text(encoding="utf-8"))["usd"] if SPEND_LOG.exists() else 0.0
 
 
-def _charge(usage: dict | None) -> float:
-    """Add a call's estimated cost to the running total. Prices are per million tokens (.env)."""
-    usage = usage or {}
-    cost = (usage.get("prompt_tokens", 0) * _price("HEADROOM_USD_PER_M_INPUT", 1.25)
-            + usage.get("completion_tokens", 0) * _price("HEADROOM_USD_PER_M_OUTPUT", 4.25)) / 1e6
-    total = spent_usd() + cost
+def _add(usd: float) -> float:
+    total = spent_usd() + usd
     SPEND_LOG.parent.mkdir(parents=True, exist_ok=True)
-    SPEND_LOG.write_text(json.dumps({"usd": round(total, 4), "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}),
+    SPEND_LOG.write_text(json.dumps({"usd": round(total, 6), "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}),
                          encoding="utf-8")
     return total
+
+
+def _cost(usage: dict | None) -> float | None:
+    """A call's cost from its reported token usage (prices per million tokens, .env); None if unreported."""
+    if not usage or "prompt_tokens" not in usage:
+        return None
+    # never below Muse Spark's standard rates, so a mistyped price can't understate the spend
+    return (usage.get("prompt_tokens", 0) * max(_price("HEADROOM_USD_PER_M_INPUT", 1.25), 1.25)
+            + usage.get("completion_tokens", 0) * max(_price("HEADROOM_USD_PER_M_OUTPUT", 4.25), 4.25)) / 1e6
+
+
+def _book(worst_usd: float) -> None:
+    """Reserve a call's worst case before sending it; refuse if that could pass the budget."""
+    budget = min(_price("HEADROOM_BUDGET_USD", 50.0), HARD_CAP_USD)
+    if spent_usd() + worst_usd > budget:
+        raise BudgetExceeded(f"spend guard: ${spent_usd():.2f} used of the ${budget:.0f} budget and a call can "
+                             f"cost up to ${worst_usd:.2f}; no more live calls")
+    _add(worst_usd)
 
 
 class ModelClient:
@@ -116,8 +142,13 @@ class ModelClient:
             if not (self.config.api_key and self.config.base_url and self.config.model):
                 raise RuntimeError(f"{self.config.role}: set HEADROOM_{self.config.role.upper()}_API_KEY, "
                                    f"_PROVIDER (or _BASE_URL) and _MODEL in .env")
-            self._client = OpenAI(base_url=self.config.base_url, api_key=self.config.api_key)
+            self._client = OpenAI(base_url=self.config.base_url, api_key=self.config.api_key,
+                                  max_retries=0, timeout=300)  # every retry would be billed
         return self._client
+
+    @property
+    def free(self) -> bool:
+        return any(host in self.config.base_url for host in ("localhost", "127.0.0.1"))
 
     def _key(self, request: dict) -> str:
         canonical = json.dumps(request, sort_keys=True, ensure_ascii=True, default=str)
@@ -130,14 +161,22 @@ class ModelClient:
             return json.loads(path.read_text(encoding="utf-8"))["response"]
         if self.mode == "replay":
             raise RecordingMissing(f"no recording for this request ({path.name}); run once in live mode")
-        budget = _price("HEADROOM_BUDGET_USD", 100.0)
-        if spent_usd() >= budget:
-            raise BudgetExceeded(f"spend guard: ${spent_usd():.2f} used of the ${budget:.0f} budget; "
-                                 f"no more live calls (raise HEADROOM_BUDGET_USD in .env to continue)")
+        client = self._openai()
+        worst = 0.0 if self.free else WORST_CALL_USD
+        _book(worst)
         started = time.perf_counter()
-        response = self._openai().chat.completions.create(model=self.config.model, messages=messages, **kwargs)
+        try:
+            response = client.chat.completions.create(model=self.config.model, messages=messages, **kwargs)
+        except Exception as exc:
+            from openai import APIConnectionError, APITimeoutError
+
+            if isinstance(exc, APIConnectionError) and not isinstance(exc, APITimeoutError):
+                _add(-worst)  # the request never reached the server
+            raise
         payload = response.model_dump(exclude_none=True)
-        _charge(payload.get("usage"))
+        cost = _cost(payload.get("usage"))
+        if cost is not None and not self.free:
+            _add(cost - worst)
         self.recordings.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"request": request, "response": payload,
                                     "seconds": round(time.perf_counter() - started, 2),

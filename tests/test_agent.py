@@ -65,18 +65,50 @@ def test_loop_recovers_from_a_bad_call():
     assert "0.4%" in turn.answer
 
 
-def test_spend_guard_blocks_live_calls(tmp_path, monkeypatch):
+def test_spend_guard_books_the_worst_case_first(tmp_path, monkeypatch):
     import pytest
 
     from headroom.meta import client as mc
 
     monkeypatch.setattr(mc, "SPEND_LOG", tmp_path / "spend.json")
-    monkeypatch.setenv("HEADROOM_BUDGET_USD", "1")
-    (tmp_path / "spend.json").write_text('{"usd": 1.5}')
+    monkeypatch.setenv("HEADROOM_BUDGET_USD", "10")
     c = mc.ModelClient("spark", mode="live", recordings=tmp_path)
+    c.config = mc.RoleConfig("spark", "https://api.meta.ai/v1", "test-key", "muse-spark-1.3")
+    usage = {"prompt_tokens": 1_000_000, "completion_tokens": 0}
+
+    class Reply:
+        def model_dump(self, **kw):
+            return {"choices": [{"message": {"content": "ok"}}], "usage": usage}
+
+    seen = []
+
+    class Api:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kw):
+                    seen.append(mc.spent_usd())  # the worst case is already booked when the call goes out
+                    return Reply()
+
+    c._client = Api
+    c.chat([{"role": "user", "content": "hi"}])
+    assert seen == [pytest.approx(mc.WORST_CALL_USD)]
+    assert mc.spent_usd() == pytest.approx(1.25)  # then settled to the reported usage
+
+    (tmp_path / "spend.json").write_text('{"usd": 6.0}')  # 6 + 4.50 could pass 10: refused, nothing sent
     with pytest.raises(mc.BudgetExceeded):
-        c.chat([{"role": "user", "content": "hi"}])
-    assert mc._charge({"prompt_tokens": 1_000_000, "completion_tokens": 0}) == pytest.approx(1.5 + 1.25)
+        c.chat([{"role": "user", "content": "again"}])
+    assert len(seen) == 1 and mc.spent_usd() == 6.0
+
+    monkeypatch.setenv("HEADROOM_BUDGET_USD", "100000")  # .env can't lift the hard cap
+    (tmp_path / "spend.json").write_text('{"usd": 136.0}')
+    with pytest.raises(mc.BudgetExceeded):
+        c.chat([{"role": "user", "content": "once more"}])
+
+    usage.clear()  # no usage reported: the worst case stays booked
+    (tmp_path / "spend.json").write_text('{"usd": 0}')
+    c.chat([{"role": "user", "content": "no usage"}])
+    assert mc.spent_usd() == pytest.approx(mc.WORST_CALL_USD)
 
 
 def test_failover_to_glimmer_when_the_link_is_down(tmp_path):
