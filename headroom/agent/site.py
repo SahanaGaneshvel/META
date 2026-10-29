@@ -17,7 +17,7 @@ from ..capacity import expansion_answer
 from ..config import DATA, LOCAL_TZ, PROCESSED, SITE
 from ..control.baselines import LeastLaxityFirst, StaticCap
 from ..control.headroom_mpc import HeadroomMPC
-from ..forecast.precomputed import PrecomputedForecaster
+from ..forecast.precomputed import ArrayForecaster, PrecomputedForecaster
 from ..metrics import evaluate
 from ..sim.engine import Result, simulate
 from ..sim.scenario import STEP_H, Scenario, make_scenario
@@ -188,12 +188,42 @@ class ReplaySite:
                   "accepted": accepted}
         if accepted:
             self.adjustments.append(args.model_dump())
-            result["effect"] = (f"planning load raised to x{args.building_multiplier:.2f} of the median forecast "
-                                f"for {args.start_local}..{args.end_local}; the safety layer is unchanged")
+            result["effect"] = self._replan_with_adjustment(issue, t0, t1, args.building_multiplier)
         else:
             result["reason"] = ("outside the forecast's calibrated band: history doesn't support it, so it needs "
                                 "a human decision before it can change the plan")
         return result
+
+    def _replan_with_adjustment(self, issue: int, t0: int, t1: int, multiplier: float) -> dict:
+        """Raise the planning load inside [t0, t1) for every forecast issued from now on, then re-run
+        Headroom on the month. The real building load is unchanged; only the plan reacts."""
+        adjusted = self.forecast.copy()
+        horizons = adjusted.shape[1]
+        for t in range(issue, min(t1, len(adjusted))):
+            h = np.arange(horizons)
+            inside = (t + h >= t0) & (t + h < t1)
+            if inside.any():
+                floor = adjusted[t, inside, 1] * multiplier
+                for j in (1, 2, 3):  # median and upper quantiles; the low quantile (free-fill floor) stays
+                    adjusted[t, inside, j] = np.maximum(adjusted[t, inside, j], floor)
+        before = self.results["headroom"]
+        controller = HeadroomMPC(ArrayForecaster(adjusted), self.spec, self.site["building_kw"])
+        after = simulate(self.scenario, controller)
+        self.forecast = adjusted
+        self.results["headroom_before_adjustment"] = before
+        self.results["headroom"] = after
+        window = slice(t0, t1)
+        site_before = self.scenario.building_kw[window] + before.ev_kw[window]
+        site_after = self.scenario.building_kw[window] + after.ev_kw[window]
+        m_before = evaluate(before, self.scenario, self.spec)
+        m_after = evaluate(after, self.scenario, self.spec)
+        return {"replanned": True,
+                "window_peak_site_kw": {"before": round(float(site_before.max())), "after": round(float(site_after.max()))},
+                "window_ev_kwh": {"before": round(float(before.ev_kw[window].sum() * STEP_H)),
+                                  "after": round(float(after.ev_kw[window].sum() * STEP_H))},
+                "month_added_demand_usd": {"before": round(m_before["added_demand_usd"]), "after": round(m_after["added_demand_usd"])},
+                "month_energy_served": {"before": round(m_before["energy_served"], 4), "after": round(m_after["energy_served"], 4)},
+                "note": "the safety layer is unchanged; only the plan reacted"}
 
     def read_tariff(self, args: ReadTariff) -> dict:
         from .tariff_reader import bill_check, extract, field_accuracy
@@ -220,5 +250,5 @@ class ReplaySite:
         return {"date": day, "alert": None, "source": "CAISO Flex Alert archive (frozen event calendar)"}
 
     def comparison(self) -> pd.DataFrame:
-        rows = [evaluate(r, self.scenario, self.spec) for r in self.results.values()]
+        rows = [evaluate(r, self.scenario, self.spec) | {"controller": name} for name, r in self.results.items()]
         return pd.DataFrame(rows).set_index("controller")

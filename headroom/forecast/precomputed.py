@@ -32,3 +32,14 @@ class PrecomputedForecaster:
             out[filled:filled + take] = saved["q"][offset:offset + take]
             filled += take
         return out
+
+
+@dataclass
+class ArrayForecaster:
+    """Serves a forecast array already aligned with a scenario (e.g. after an accepted adjustment)."""
+    array: np.ndarray
+    horizons: int = 96
+    quantile_levels: tuple[float, ...] = (0.1, 0.5, 0.9, 0.99)
+
+    def predict(self, index: pd.DatetimeIndex, measured: np.ndarray) -> np.ndarray:
+        return self.array[: len(index)]
