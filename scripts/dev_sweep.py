@@ -19,7 +19,7 @@ for var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from headroom.config import DATA, PROCESSED  # noqa: E402
-from headroom.control.baselines import LeastLaxityFirst  # noqa: E402
+from headroom.control.baselines import LeastLaxityFirst, StaticCap  # noqa: E402
 from headroom.control.headroom_mpc import HeadroomMPC  # noqa: E402
 from headroom.forecast.oracle import OracleForecaster  # noqa: E402
 from headroom.forecast.profile import ProfileForecaster  # noqa: E402
@@ -28,10 +28,10 @@ from headroom.sim.engine import simulate  # noqa: E402
 from headroom.sim.scenario import make_scenario  # noqa: E402
 from headroom.tariff import load_gold  # noqa: E402
 
-MONTHS = [("2016-07-01", "2016-07-31"), ("2016-08-01", "2016-08-31"), ("2016-09-01", "2016-09-30"),
-          ("2017-02-01", "2017-02-28"), ("2017-03-01", "2017-03-31")]
-PORTS = [6, 12, 18, 24, 36]
-CONTROLLERS = ["llf", "headroom", "headroom_q90", "headroom_oracle"]
+MONTHS = [("2016-07-01", "2016-07-31"), ("2016-08-01", "2016-08-31"), ("2017-03-01", "2017-03-31")]
+PORTS = [int(x) for x in os.environ.get("SWEEP_PORTS", "12,24,48,72").split(",")]
+CONTROLLERS = os.environ.get("SWEEP_CONTROLLERS", "static_cap,llf,headroom,headroom_strict").split(",")
+OUT_NAME = os.environ.get("SWEEP_OUT", "dev_sweep")
 
 
 _W: dict = {}
@@ -52,9 +52,13 @@ def run_one(job: tuple) -> dict:
     cap = scenario.service_kw - site.loc[site["split"] == "train", "building_kw"].max()
     if name == "llf":
         controller = LeastLaxityFirst(cap)
+    elif name == "static_cap":
+        controller = StaticCap(cap)
     else:
-        forecaster = OracleForecaster() if name == "headroom_oracle" else _W["profile"]
-        controller = HeadroomMPC(forecaster, spec, history, q_high=0.9 if name == "headroom_q90" else 0.99)
+        forecaster = OracleForecaster() if name.endswith("oracle") else _W["profile"]
+        controller = HeadroomMPC(forecaster, spec, history,
+                                 unserved_usd_per_kwh=2.0 if "strict" in name else 25.0,
+                                 oracle_floors="full_oracle" in name)
         controller.name = name
     row = evaluate(simulate(scenario, controller), scenario, spec)
     row["month"] = first[:7]
@@ -68,9 +72,10 @@ def main() -> None:
     out = DATA / "results"
     out.mkdir(parents=True, exist_ok=True)
     frame = pd.DataFrame(rows)
-    frame.to_csv(out / "dev_sweep.csv", index=False)
+    frame.to_csv(out / f"{OUT_NAME}.csv", index=False)
     summary = frame.groupby(["controller", "n_ports"])[
-        ["energy_served", "cars_short_over_1kwh", "new_demand_peaks", "added_demand_usd"]].mean().round(3)
+        ["energy_served", "cars_short_over_1kwh", "new_demand_peaks", "added_demand_usd",
+         "service_violations", "safety_interventions", "peak_site_kw"]].mean().round(3)
     print(summary.to_string())
 
 

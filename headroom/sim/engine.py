@@ -37,12 +37,13 @@ class SafetyLayer:
     """Deterministic last line of defence; nothing upstream can override it.
 
     Guarantee: if the building's load rises by at most `ramp_kw` from one interval to the next, the
-    site never exceeds `service_kw`. `ramp_kw` covers the largest measured 15-minute rise in the
-    training year (51 kW) plus five standard deviations of the simulated intra-hour noise; whether
-    the assumption held is reported for every run (`ramp_breaches`).
+    site never exceeds `service_kw`. The default covers the largest measured 15-minute rise in the
+    training year (51.4 kW) with margin (the test year's largest is 53.4 kW); stress tests with
+    added intra-hour noise must widen it. Whether the assumption held is reported for every run
+    (`metrics.ramp_breaches`).
     """
     service_kw: float
-    ramp_kw: float = 90.0
+    ramp_kw: float = 60.0
     extra_cap_kw: np.ndarray | None = None  # optional per-interval site cap (e.g. a utility request)
 
     def apply(self, proposal: np.ndarray, view: StepView, scenario: Scenario) -> tuple[np.ndarray, float]:

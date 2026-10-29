@@ -3,6 +3,10 @@
 Every interval it plans all plugged-in cars to their departures (at most 24 h ahead):
 
     min   energy cost + unserved_usd_per_kwh * unserved + demand rates * ceiling raises
+
+The default unserved value ($25/kWh) is "drivers first": a car leaving without its energy costs
+more than the ceiling raise that would have delivered it, so peaks rise only by the minimum the
+physics requires. A low value (e.g. $2/kWh) gives the strict "never set a new peak" policy.
     s.t.  each car: delivered + unserved = remaining need;  0 <= kW <= port cap while plugged in
           EV kW at k <= max(0, ceiling - building P_hi forecast at k) + raise        (max demand)
           same for 4-9 pm weekdays against the peak-period ceiling                  (peak demand)
@@ -33,9 +37,11 @@ class HeadroomMPC:
     name = "headroom"
 
     def __init__(self, forecaster, spec: TariffSpec, history: pd.Series, q_low: float = 0.1,
-                 q_high: float = 0.99, unserved_usd_per_kwh: float = 2.0, horizon: int = 96):
+                 q_high: float = 0.99, unserved_usd_per_kwh: float = 25.0, horizon: int = 96,
+                 oracle_floors: bool = False):
         self.forecaster = forecaster
         self.history = history
+        self.oracle_floors = oracle_floors  # ablation only: floors = the month's true building peaks
         self.spec = spec
         self.q_low = forecaster.quantile_levels.index(q_low)
         self.q_high = forecaster.quantile_levels.index(q_high)
@@ -59,6 +65,11 @@ class HeadroomMPC:
         self.rate_max = np.array([rates.get((s, "max"), 0.0) for s in seasons])
         self.rate_peak = np.array([rates.get((s, "peak"), 0.0) for s in seasons])
         self.floors = self._month_floors(local, labels, seasons)
+        if self.oracle_floors:
+            b = pd.Series(scenario.building_kw)
+            for key in np.unique(self.month):
+                sel = self.month == key
+                self.floors[key] = (float(b[sel].max()), float(b[sel & self.peak_window].max()) if (sel & self.peak_window).any() else 0.0)
         self.forecast = None  # filled lazily: needs measured data, which grows as the run proceeds
         self._scenario_id = id(scenario)
         self._mtd = {"month": None, "max": 0.0, "peak": 0.0}
