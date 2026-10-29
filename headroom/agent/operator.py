@@ -33,6 +33,7 @@ class Turn:
     steps: list[Step]
     answer: str
     messages: list[dict]
+    answered_by: str = "spark"  # the role that served the last model call (FailoverClient)
 
 
 def run(context: SiteContext, request: str, history: list[dict] | None = None, client: ModelClient | None = None,
@@ -52,7 +53,8 @@ def run(context: SiteContext, request: str, history: list[dict] | None = None, c
             assistant["tool_calls"] = calls
         messages.append(assistant)
         if not calls:
-            return Turn(steps=steps, answer=message.get("content") or "", messages=messages)
+            return Turn(steps=steps, answer=message.get("content") or "", messages=messages,
+                        answered_by=getattr(client, "answered_by", "spark"))
         for call in calls:
             fn = call["function"]
             result, ok = dispatch(context, fn["name"], fn.get("arguments", "{}"))

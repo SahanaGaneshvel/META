@@ -16,7 +16,7 @@ import streamlit as st
 from headroom.agent.operator import SYSTEM, run
 from headroom.agent.site import ReplaySite
 from headroom.config import DATA, LOCAL_TZ
-from headroom.meta.client import ModelClient, RecordingMissing
+from headroom.meta.client import FailoverClient, ModelClient, RecordingMissing
 
 st.set_page_config(page_title="Headroom control room", page_icon="⚡", layout="wide")
 NAMES = {"headroom": "Headroom", "llf": "Standard smart charging (LLF)", "static_cap": "Static cap"}
@@ -99,7 +99,9 @@ with st.sidebar:
                        format_func=lambda d: d + ("  · CAISO Flex Alert (heat wave)" if d in ("2017-06-20", "2017-06-21") else ""))
     n_ports = st.select_slider("Chargers on site", options=[24], value=24,
                                help="Today's garage has 6; the replay shows the site at 4x")
-    network = st.radio("Network", ["Online: Muse Spark Open", "Offline: Muse Glimmer"], index=0)
+    link_up = not st.toggle("Cut the site's internet link", value=False,
+                            help="The cloud model becomes unreachable; the operator fails over to Muse Glimmer "
+                                 "on the site's own GPU. Charging never depends on either model.")
     mode = st.radio("Model calls", ["Replay recorded", "Live"], index=0,
                     help="Replay uses recorded model responses, so the demo works without credits")
 
@@ -124,10 +126,11 @@ st.plotly_chart(chart(site, frame, now, t_now), width="stretch")
 tab_op, tab_tariff, tab_expand, tab_bays, tab_proof = st.tabs(["Operator", "Tariff", "Can I add chargers?", "Bays", "Proof"])
 
 with tab_op:
-    role = "glimmer" if network.startswith("Offline") else "spark"
-    client = ModelClient(role, mode="replay" if mode.startswith("Replay") else "auto")
-    st.caption(f"Operator model: **{'Muse Glimmer' if role == 'glimmer' else 'Muse Spark Open'}** · "
-               "every number comes from a tool; every tool call is validated before it runs")
+    client = FailoverClient("spark", "glimmer", mode="replay" if mode.startswith("Replay") else "auto",
+                            link_up=link_up)
+    st.caption(("Internet up: **Muse Spark** (cloud) answers" if link_up else
+                "🔌 Internet down: **Muse Glimmer** on the site's own GPU answers") +
+               " · every number comes from a tool; every tool call is validated before it runs")
     history = st.session_state.setdefault("history", [{"role": "system", "content": SYSTEM}])
     for msg in st.session_state.setdefault("shown", []):
         with st.chat_message(msg["role"]):
@@ -151,11 +154,17 @@ with tab_op:
             st.session_state["history"] = turn.messages
             steps = [{"tool": s.tool, "arguments": s.arguments, "result": s.result, "ok": s.ok}
                      for s in turn.steps if s.kind == "tool"]
-            st.session_state["shown"].append({"role": "assistant", "text": turn.answer, "steps": steps})
+            served = "Muse Glimmer (on site)" if turn.answered_by == "glimmer" else "Muse Spark (cloud)"
+            st.session_state["shown"].append({"role": "assistant", "text": f"{turn.answer}\n\n_— {served}_",
+                                              "steps": steps})
             speak(turn.answer)
         except RecordingMissing:
             st.session_state["shown"].append({"role": "assistant", "text":
-                "_No recorded answer for this request. Switch **Model calls** to Live (needs a partner key)._"})
+                "_No recorded answer for this request. Switch **Model calls** to Live (needs a model key)._"})
+        except ConnectionError:
+            st.session_state["shown"].append({"role": "assistant", "text":
+                "_No model reachable. Charging continues unchanged: the planner and safety layer never "
+                f"depend on a model. Site now: {site.site_status()}_"})
         except RuntimeError as exc:
             st.session_state["shown"].append({"role": "assistant", "text": f"_{exc}_"})
         st.rerun()

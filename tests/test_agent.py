@@ -77,3 +77,24 @@ def test_spend_guard_blocks_live_calls(tmp_path, monkeypatch):
     with pytest.raises(mc.BudgetExceeded):
         c.chat([{"role": "user", "content": "hi"}])
     assert mc._charge({"prompt_tokens": 1_000_000, "completion_tokens": 0}) == pytest.approx(1.5 + 1.25)
+
+
+def test_failover_to_glimmer_when_the_link_is_down(tmp_path):
+    import pytest
+
+    from headroom.meta import client as mc
+
+    class Down:
+        def chat(self, messages, **kwargs):
+            raise mc.LinkDown("cloud unreachable")
+
+    fc = mc.FailoverClient(recordings=tmp_path)
+    fc.backup = ScriptedModel([{"content": "Glimmer here: site at 812 kW."}])
+    fc.backup.config = mc.RoleConfig("glimmer", "", "", "muse-glimmer")
+    fc.primary = Down()
+    turn = run(FakeSite(), "Status?", client=fc)
+    assert turn.answered_by == "glimmer" and "812" in turn.answer
+
+    fc.backup = Down()
+    with pytest.raises(mc.LinkDown):  # neither model: the caller is told, charging is unaffected
+        fc.chat([{"role": "user", "content": "hi"}])

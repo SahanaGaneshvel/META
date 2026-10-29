@@ -1,8 +1,9 @@
 """One client for Meta's open-weight models on any OpenAI-compatible partner, with record/replay.
 
 Roles, each configured in .env (see .env.example):
-    spark    Muse Spark Open, the operator agent (Baseten, Fireworks, Modal, Groq, ...)
-    glimmer  Muse Glimmer, the offline backup operator (may sit on a different provider)
+    spark    Muse Spark, the operator agent (Meta Model API, or Spark Open on Baseten, Fireworks, ...)
+    glimmer  Muse Glimmer, the backup operator on the site's own GPU (FailoverClient switches to it
+             when the cloud can't be reached)
 
 Every call is keyed by a hash of its full request. HEADROOM_MODEL_MODE:
     auto    replay a recording if one exists, otherwise call live and record (default)
@@ -143,6 +144,52 @@ class ModelClient:
                                     "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S")}, indent=1),
                         encoding="utf-8")
         return payload
+
+
+class LinkDown(ConnectionError):
+    """The site's internet link is down (raised for the cloud model when the demo cuts the link)."""
+
+
+def _unreachable() -> tuple[type[BaseException], ...]:
+    from openai import APIConnectionError, InternalServerError  # APITimeoutError is an APIConnectionError
+
+    return (LinkDown, APIConnectionError, InternalServerError)
+
+
+class FailoverClient:
+    """The cloud model first; if it can't be reached, the open-weight model on the site's own GPU.
+
+    Only network failures fail over; anything else (a bad request, the spend guard) still raises.
+    If neither model answers, LinkDown is raised: the planner and safety layer
+    keep running either way, since no model sits in the control loop. `answered_by` names the
+    role that served the last call.
+    """
+
+    def __init__(self, primary: str = "spark", backup: str = "glimmer", mode: str | None = None,
+                 link_up: bool = True, recordings: Path = RECORDINGS):
+        self.primary = ModelClient(primary, mode, recordings)
+        self.backup = ModelClient(backup, mode, recordings)
+        self.link_up = link_up
+        self.answered_by = primary
+
+    @property
+    def model(self) -> str:
+        return (self.primary if self.answered_by == self.primary.config.role else self.backup).model
+
+    def chat(self, messages: list[dict], **kwargs) -> dict:
+        try:
+            if not self.link_up:
+                raise LinkDown("internet link down")
+            response = self.primary.chat(messages, **kwargs)
+            self.answered_by = self.primary.config.role
+            return response
+        except _unreachable():
+            try:
+                response = self.backup.chat(messages, **kwargs)
+            except _unreachable() as exc:
+                raise LinkDown("no model reachable") from exc
+            self.answered_by = self.backup.config.role
+            return response
 
 
 def as_data_url(path: Path) -> str:
