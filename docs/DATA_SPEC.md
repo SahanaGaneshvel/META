@@ -97,7 +97,8 @@ Within test: walk-forward, refitting monthly on all earlier data (as it would be
 
 ## 4. Known issues (all stated in the README)
 - **Distribution shift**: Webster sessions fall about 30% from 2017 Q2 to Q4 (stations #2 and #3 most). This is real, falls in the test period, and the forecaster must adapt. We report it.
-- The building data is hourly, so 15-min building load is derived (C3–C4).
+- The building data is hourly, so 15-min building load is derived (C3–C4). **Splitting hourly data smooths intra-hour peaks**, so absolute 15-min demand is understated. The headline compares controllers on the *same* series, and a labelled stress test adds intra-hour variability to show the conclusions hold. Considered and rejected (Oct 29): moving to LBNL Building 59 (real 15-min, 2018–2020), because it covers only two office floors (likely far below E-4 TOU's 500–1,000 kW), its gaps are model-imputed, there are no Flex Alert days in 2018–2019 to replay, and the switch would cost about a day.
+- **Licences**: Palo Alto open data terms (2018) require no attribution and are silent on commercial use and redistribution, use at own risk. The public repo therefore doesn't redistribute the raw session file; `scripts/fetch_data.py` downloads it from the city portal. BDG2 is CC-BY 4.0 (cited). The parking video is public domain. ACN-Data was dropped (research/educational use only).
 - **Virtual site**: the building is in Berkeley and the garage in Palo Alto (about 50 km apart, same climate region).
 - 2026 tariff applied to 2016–2017 behaviour ("today's prices, historical behaviour").
 - Requested energy = delivered energy.

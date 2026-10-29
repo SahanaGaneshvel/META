@@ -53,7 +53,6 @@ All calls go through one OpenAI-compatible client; provider (Baseten, Fireworks,
 | **Muse Spark Open** (audio input) | The site manager speaks a request; no separate speech model | Same tool validation as typed requests |
 | *(optional)* **Meta MMS-TTS** (open weights) | Spoken replies, only if time allows; default is the browser's built-in voice, which isn't a model call | — |
 | **Muse Glimmer** | Offline backup operator ("pull the network, the site stays safe") | Same tools and validators |
-| **Muse Glimmer, fine-tuned** (stretch) | Spark Open labels synthetic tariffs; only labels that **reproduce the bill exactly** become training data; LoRA-tune Glimmer | Before/after accuracy on the real CPAU and PG&E tariffs |
 | **Muse Code** | Coding agent during the build | Mentioned in README and video |
 
 **Runtime rule (from Meta):** every model the project calls at runtime must be a Meta model; open Meta models count however they're run. So **no TinyTimeMixer, Whisper or third-party voices**. Models we train ourselves on our own data (LightGBM quantile forecaster) are our code, not third-party models. The README lists every Meta model used and where.
@@ -89,7 +88,7 @@ All calls go through one OpenAI-compatible client; provider (Baseten, Fireworks,
 ## 7. Scope
 
 **Core (by the night of Nov 1; scores ≈8.5 alone):** site simulator (building + EV + service limit + 15-min demand + transformer) · baselines (static cap, LLF, adacharge MPC) · probabilistic forecaster with backtest · MPC + safety layer + fuzz tests · Spark Open agent with tools and record/replay · tariff extraction + bill check · hosting-capacity Monte Carlo · control-room UI.
-**10-level extras (Nov 2–3, strictly in this order; whatever isn't done by end of Nov 3 is cut):** hosted demo with replay → ablations + fault injection → second tariff (PG&E) → voice + bay video → Glimmer offline + fine-tune → OCPP output.
+**Priority (revised Oct 29): one complete path on screen first** (forecast → tariff verified → blocked bay → savings), then the video. **Extras after that, in order; whatever isn't done by end of Nov 3 is cut:** hosted demo with replay → ablations + intra-hour stress test → voice → Glimmer offline. **Cut:** Glimmer fine-tune, OCPP output, ACN-Data (research-only licence), PG&E/URDB tariffs (optional generalisation check only).
 **Won't:** real hardware, mobile app, multi-site, India site, driver payments.
 
 ## 8. Risks and mitigations

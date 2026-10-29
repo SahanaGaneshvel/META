@@ -119,7 +119,7 @@ saved = bills["llf"]["added_demand"] - bills["headroom"]["added_demand"]
 c3.metric("Demand charges added by EVs this month", f"${bills['headroom']['added_demand']:,.0f}",
           delta=f"-${saved:,.0f} vs standard smart charging", delta_color="inverse")
 c4.metric("Service-limit violations", "0", help="Guaranteed by the deterministic safety layer")
-st.plotly_chart(chart(site, frame, now, t_now), use_container_width=True)
+st.plotly_chart(chart(site, frame, now, t_now), width="stretch")
 
 tab_op, tab_tariff, tab_expand, tab_proof = st.tabs(["Operator", "Tariff", "Can I add chargers?", "Proof"])
 
@@ -192,13 +192,13 @@ with tab_expand:
                                      mode="lines+markers", line=dict(color=COLORS[name])))
         fig.update_layout(height=320, yaxis_title="Added demand charges ($/month)", xaxis_title="Chargers",
                           margin=dict(l=10, r=10, t=10, b=10))
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(summary.round(3), use_container_width=True, hide_index=True)
+        st.plotly_chart(fig, width="stretch")
+        st.dataframe(summary.round(3), width="stretch", hide_index=True)
     else:
         st.info("Run `python scripts/capacity_study.py` to fill this tab.")
 
 with tab_proof:
     st.subheader("This month, same real sessions, three controllers")
     st.dataframe(site.comparison()[["energy_served", "added_demand_usd", "peak_site_kw", "service_violations",
-                                    "safety_interventions"]].round(3), use_container_width=True)
+                                    "safety_interventions"]].round(3), width="stretch")
     st.caption("Safety layer: 10,000 random and adversarial plans fuzz-tested, 0 violations (tests/test_control.py).")
