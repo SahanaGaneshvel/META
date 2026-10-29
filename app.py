@@ -121,7 +121,7 @@ c3.metric("Demand charges added by EVs this month", f"${bills['headroom']['added
 c4.metric("Service-limit violations", "0", help="Guaranteed by the deterministic safety layer")
 st.plotly_chart(chart(site, frame, now, t_now), width="stretch")
 
-tab_op, tab_tariff, tab_expand, tab_proof = st.tabs(["Operator", "Tariff", "Can I add chargers?", "Proof"])
+tab_op, tab_tariff, tab_expand, tab_bays, tab_proof = st.tabs(["Operator", "Tariff", "Can I add chargers?", "Bays", "Proof"])
 
 with tab_op:
     role = "glimmer" if network.startswith("Offline") else "spark"
@@ -164,6 +164,17 @@ with tab_tariff:
     st.write("Muse Spark Open reads the utility's tariff into strict JSON. It's accepted only if it "
              "**reproduces the bill** for every month of real metered load.")
     doc = st.selectbox("Tariff document", ["cpau-e-4-tou-2026", "cpau-e-7-tou-2026"])
+    with st.expander("How the verifier catches a misread (no model call)"):
+        from headroom.agent.tariff_reader import bill_check, field_accuracy
+        from headroom.tariff import load_gold
+
+        gold = load_gold(doc.replace("cpau-", "").replace("-2026", "_2026"))
+        bad = gold.model_copy(deep=True)
+        bad.seasons[0].demand[0].usd_per_kw = 10.26  # the commodity column only: a classic misread
+        acc, bills = field_accuracy(bad, gold), bill_check(bad, gold, site.site["building_kw"])
+        st.write(f"Reading only the commodity column of the summer peak demand charge ($10.26 instead of "
+                 f"${gold.seasons[0].demand[0].usd_per_kw}): **{acc['correct']}/{acc['fields']} fields right, "
+                 f"but the bill is off by {bills['worst_error']:.1%} in {bills['worst_month']} → rejected.**")
     if st.button("Read and verify"):
         from headroom.agent.tools import ReadTariff
 
@@ -197,8 +208,48 @@ with tab_expand:
     else:
         st.info("Run `python scripts/capacity_study.py` to fill this tab.")
 
+with tab_bays:
+    from headroom.agent.bays import BayReport, decide, load_bays, observe, occupancy_accuracy
+
+    st.write("A meter can't see a bay that's occupied but not charging. The camera can: Muse Spark Open "
+             "watches the clip and reports each numbered bay; a bay is **blocked** only if the camera sees a "
+             "vehicle **and** the charger reports no energy flowing.")
+    st.caption("Illustrative: public-domain parking-lot footage with bays designated as EV bays (this lot has no chargers). "
+               "In the real data, 28.2% of plugged-in time is a finished car still occupying the bay.")
+    still = DATA / "video" / "lot_close.bays.png"
+    if still.exists():
+        st.image(str(still), width="stretch")
+    if st.button("Check the bays"):
+        try:
+            with st.spinner("Muse Spark Open is watching the clip…"):
+                bays = load_bays("lot_close")
+                report = observe(DATA / "video" / "lot_close_5fps.mp4", DATA / "video" / "lot_close.jpg", bays,
+                                 client=ModelClient("spark", mode="replay" if mode.startswith("Replay") else "auto"))
+            charger_kw = {b.number: 0.0 for b in bays}
+            charger_kw[3] = 6.1  # replay: the charger on bay 3 reports a car charging
+            st.dataframe(pd.DataFrame(decide(report, charger_kw)).drop(columns=["camera"]), width="stretch", hide_index=True)
+            acc = occupancy_accuracy(report, "lot_close")
+            st.write(f"Occupancy calls vs. hand labels: **{acc['correct']}/{acc['bays']}**")
+        except (RecordingMissing, RuntimeError) as exc:
+            st.warning(str(exc))
+
 with tab_proof:
     st.subheader("This month, same real sessions, three controllers")
     st.dataframe(site.comparison()[["energy_served", "added_demand_usd", "peak_site_kw", "service_violations",
                                     "safety_interventions"]].round(3), width="stretch")
-    st.caption("Safety layer: 10,000 random and adversarial plans fuzz-tested, 0 violations (tests/test_control.py).")
+    final = DATA / "results" / "final_summary.csv"
+    if final.exists():
+        st.subheader("Held-out test months (May–Oct 2017), 24 chargers, with ablations")
+        st.dataframe(pd.read_csv(final).round(3), width="stretch", hide_index=True)
+    cov = sorted((DATA / "forecasts").glob("2017-*.json"))
+    if cov:
+        st.subheader("Forecast calibration on held-out months")
+        rows = []
+        for path in cov:
+            for r in json.loads(path.read_text()):
+                rows.append({"month": path.stem, "quantile": f"P{int(r['level'] * 100)}", "coverage": r["coverage"]})
+        table = pd.DataFrame(rows).pivot(index="month", columns="quantile", values="coverage")
+        st.dataframe(table.round(3), width="stretch")
+        st.caption("A calibrated P90 is exceeded 10% of the time; P99, 1%.")
+    st.caption("Safety layer: 10,000 random and adversarial plans fuzz-tested, 0 violations (tests/test_control.py). "
+               "Transformer ageing: IEEE C57.91 model (headroom/thermal.py).")

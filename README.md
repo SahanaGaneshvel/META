@@ -32,8 +32,8 @@ Palo Alto WEBSTER garage charging sessions (2016–2017), a UC Berkeley building
 ## Built during the hackathon (Oct 26 – Nov 4, 2026)
 Everything in this repository: the data pipeline, simulator, baselines harness, forecaster, planner, safety layer, transformer model, tariff reader and verifiers, agent and tools, capacity study and control room. The git history starts on Oct 27, 2026.
 
-## Prior work (disclosed)
-The forecasting *approach* (an hour-of-day baseline improved by per-horizon gradient boosting, stacked and calibrated) comes from our 1st-place entry in the IndiaAI Impact Gen-AI Hackathon 2025, Track 2 (Sahana Ganeshvel and Vijay Bala Mahalingam). No code from it is used; the forecaster here was written during this hackathon, without the TinyTimeMixer component (not a Meta model).
+## Prior work
+The forecasting idea (an hour-of-day baseline improved by gradient boosting) follows our 2025 IndiaAI hackathon entry; all code here was written during this hackathon.
 
 ## Run it (Windows, Python 3.12)
 ```powershell
