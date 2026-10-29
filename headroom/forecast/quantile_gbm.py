@@ -197,3 +197,32 @@ class TailEnsemble:
             if level >= self.tail_from:
                 out[:, :, j] = np.maximum(out[:, :, j], other[:, :, j])
         return out
+
+
+@dataclass
+class HorizonBlend:
+    """Per-horizon model selection, chosen on validation months (Mar-Apr 2017, pinball loss):
+    the persistence-corrected profile wins below 4 hours (it knows where the load just was),
+    LightGBM wins from 4 to 24 hours. Beyond the switch, the P99 tail is the larger of the two."""
+    short: object
+    long: object
+    switch: int = 16  # 15-minute steps (4 hours)
+    tail_from: float = 0.99
+
+    @property
+    def horizons(self) -> int:
+        return self.long.horizons
+
+    @property
+    def quantile_levels(self) -> tuple[float, ...]:
+        return self.long.quantile_levels
+
+    def predict(self, index: pd.DatetimeIndex, measured: np.ndarray) -> np.ndarray:
+        out = self.long.predict(index, measured)
+        near = self.short.predict(index, measured)
+        out[:, : self.switch] = near[:, : self.switch]
+        for j, level in enumerate(self.quantile_levels):
+            if level >= self.tail_from:
+                out[:, self.switch:, j] = np.maximum(out[:, self.switch:, j], near[:, self.switch:, j])
+        out.sort(axis=2)
+        return out

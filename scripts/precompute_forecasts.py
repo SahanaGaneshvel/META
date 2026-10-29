@@ -2,9 +2,10 @@
 
     python scripts/precompute_forecasts.py 2016-07 2016-08 2017-03 2017-05 ... 2017-12
 
-For month M: LightGBM quantiles trained on everything before M - 2 months, conformally calibrated on
-the two months before M, re-calibrated daily on the last 28 days (past data only), with the P99 tail
-taken as the larger of LightGBM's and the hour-of-day profile's. Saves [issue, horizon, quantile]
+For month M: the hour-of-day profile (persistence-corrected) for the first 4 hours; beyond that,
+LightGBM quantiles trained on everything before M - 2 months, conformally calibrated on the two
+months before M and re-calibrated daily on the last 28 days (past data only), with the P99 tail
+taken as the larger of LightGBM's and the profile's. The 4-hour switch was chosen on validation. Saves [issue, horizon, quantile]
 for every interval of M plus one day, and the coverage of the month for the record.
 """
 from __future__ import annotations
@@ -45,7 +46,7 @@ def main(months: list[str]) -> None:
         started = time.time()
         gbm = qg.QuantileGBM.fit(load, temp, train_end=f"{month}-01", stride=8)
         profile = ProfileForecaster.fit(load, "2016-01-01", f"{month}-01")
-        model = qg.TailEnsemble(qg.RollingConformal(gbm), profile)
+        model = qg.HorizonBlend(short=profile, long=qg.RollingConformal(gbm))
         index = month_window(month)
         pred = model.predict(index, load.loc[index].to_numpy()).astype(np.float32)
         np.savez_compressed(FORECASTS / f"{month}.npz", q=pred, start=str(index[0]), n=len(index),

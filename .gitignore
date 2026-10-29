@@ -11,3 +11,4 @@ data/raw/bdg2/electricity_cleaned.csv
 data/forecasts/
 data/*.log
 data/results/*.pkl
+data/forecasts_v1/
