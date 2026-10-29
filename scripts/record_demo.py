@@ -1,6 +1,6 @@
 """Run every model moment in the demo once, live, and save the responses for replay.
 
-    python scripts/record_demo.py            # Muse Spark Open (HEADROOM_SPARK_* in .env)
+    python scripts/record_demo.py            # Muse Spark (HEADROOM_SPARK_* in .env)
     python scripts/record_demo.py glimmer    # Muse Glimmer   (HEADROOM_GLIMMER_* in .env)
 
 Each step prints what the model did and whether the verifiers passed. Responses land in
@@ -17,19 +17,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from headroom.agent.bays import decide, load_bays, observe, occupancy_accuracy  # noqa: E402
-from headroom.agent.operator import SYSTEM, run  # noqa: E402
+from headroom.agent.operator import DEMO_REQUESTS, SYSTEM, run  # noqa: E402
 from headroom.agent.site import ReplaySite  # noqa: E402
 from headroom.agent.tools import ReadTariff  # noqa: E402
 from headroom.config import DATA  # noqa: E402
 from headroom.meta.client import ModelClient, spent_usd  # noqa: E402
 
-REQUESTS = [  # the operator moments in docs/VIDEO.md, in order
-    ("2017-06-21T15:00", "What's the situation at the site right now?"),
-    ("2017-06-21T15:00", "Is there any grid alert today, and should we adjust the plan for it?"),
-    ("2017-06-21T18:00", "Fleet vans need 40 kWh each by 6 am tomorrow, six of them, plugging in at 7 pm. Can we do it?"),
-    ("2017-06-21T18:00", "Why did we charge the way we did at 5:30 pm?"),
-    ("2017-06-21T18:00", "Can I add 12 more chargers? What would it cost me?"),
-]
+REQUESTS = DEMO_REQUESTS  # the operator moments in docs/VIDEO.md, in order
 
 
 def step(title: str, fn) -> None:
@@ -68,7 +62,8 @@ def main(role: str) -> None:
             history = turn.messages
             for s in turn.steps:
                 print(("  tool " + s.tool + (" OK" if s.ok else " REJECTED")) if s.kind == "tool" else "  says: " + s.text[:200])
-            print("  answer:", turn.answer[:400])
+            print("  answer:", turn.answer[:600])
+            print("  numbers not backed by a tool:", turn.unsupported or "none")
         step(f"operator: {request}", ask)
     print(f"\nspent so far: ${spent_usd():.2f}")
 

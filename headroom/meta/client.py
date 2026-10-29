@@ -15,7 +15,7 @@ card). Every live call goes through ModelClient.chat, which:
     - books the worst case for the call (WORST_CALL_USD, $4.50: Muse Spark's whole 1,048,576-token
       context billed at the output rate) in data/spend.json *before* sending it, and
       refuses if that would pass HEADROOM_BUDGET_USD (default $50, and never above HARD_CAP_USD, which
-      .env cannot raise: $140 of the $150 credits);
+      .env cannot raise: $95);
     - after the response, replaces the booking with the cost of the reported token usage (prices
       per million tokens in .env); a response without usage keeps the worst case;
     - keeps the booking for any call that fails after it may have reached the server, and refunds it
@@ -83,7 +83,7 @@ class BudgetExceeded(RuntimeError):
 
 
 SPEND_LOG = DATA / "spend.json"
-HARD_CAP_USD = 140.0  # below the $150 Meta credits; edit the code, not .env, to change it
+HARD_CAP_USD = 95.0  # owner's ceiling, under $100 (Meta credits: $150); edit the code, not .env, to change it
 WORST_CALL_USD = 4.5  # 1,048,576 tokens x $4.25/M: no single Muse Spark call can cost more
 
 

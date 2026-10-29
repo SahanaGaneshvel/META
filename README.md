@@ -10,7 +10,7 @@ Headroom runs the chargers inside the room the building leaves:
 - a **probabilistic forecaster** of the building's load (calibrated quantiles, re-calibrated daily);
 - a **planner** (an LP on HiGHS) that charges every car under the demand level the month has already paid for, and raises it only by the minimum the physics requires;
 - a **deterministic safety layer** that nothing above it can override (fuzz-tested on 10,000 random and adversarial plans);
-- **Muse Spark Open as the site's operator**: it reads the utility's tariff, takes requests by text or voice, watches the bays, and answers "can I add 12 more chargers?" from simulation on real sessions. Every number it gives comes from a tool; every tool call is validated. **Muse Glimmer** takes over if the network drops.
+- **Muse Spark as the site's operator**: it reads the utility's tariff, takes requests by text or voice, watches the bays, sizes a plan change for a grid alert from this building's past alert days, and answers "can I add 12 more chargers?" from simulation on real sessions. Every tool call is validated, and every number in an answer is checked against the tool results. **Muse Glimmer** takes over on the site's own GPU if the internet drops; charging never depends on either model.
 
 > "The model proposes, the math decides, the safety layer guarantees."
 
@@ -34,12 +34,11 @@ Same real sessions for every controller; 6 summer months × 3 resampled fleets =
 - The three EV-only baselines coincide at 24 chargers because their fixed 161 kW cap never binds; they separate at 48+.
 - Forecast calibration on the test months: P90 covered 87–92% (target 90%), P99 98–100% (target 99%).
 
-## Meta models used (all open weights)
+## Meta models used
 | Model | Where it runs | What it does in Headroom |
 |---|---|---|
-| **Muse Spark Open** | Partner inference (Baseten / Fireworks / Modal; OpenAI-compatible) | Operator agent with validated tool calls; tariff document → strict JSON, verified by reproducing real bills; voice requests (audio input); bay video → blocked bays |
-| **Muse Glimmer** | Partner inference | Offline backup operator |
-| **Muse Code** | Development | Coding agent during the build |
+| **Muse Spark 1.3** | Meta Model API | Operator agent with validated tool calls and a number check on every answer; tariff document → strict JSON, verified by reproducing real bills; voice requests (audio input); bay video → blocked bays |
+| **Muse Glimmer** (open weights) | The site's own GPU via Ollama (demo recorded on a Kaggle T4) | Backup operator: the app fails over to it automatically when the cloud can't be reached |
 
 Every model the project calls at runtime is a Meta model. Models we train ourselves (the LightGBM quantile forecaster) are our own code. Model responses used in the demo are recorded (`data/recordings/`) so the hosted demo can replay them.
 
@@ -60,7 +59,7 @@ python -m venv .venv
 ```
 The control room opens with **Model calls: Replay recorded**: the operator, tariff and bay answers are real Muse Spark and Muse Glimmer responses we recorded (`data/recordings/`), so the full demo runs without credits. Ask the requests listed in `scripts/record_demo.py` to replay them; any other request needs Live mode and a key. The first load simulates the month (about a minute) and caches it. Flip **Cut the site's internet link** to see the operator fail over to Muse Glimmer.
 
-**Live mode:** `copy .env.example .env`, add a key (Meta Model API, or a partner serving Muse Spark Open / Glimmer), and switch Model calls to Live. Keys live only in `.env`, which is never committed.
+**Live mode:** `copy .env.example .env`, add a Meta Model API key as `MODEL_API_KEY` (or a partner serving Muse Spark Open / Glimmer), and switch Model calls to Live. Keys live only in `.env`, which is never committed.
 
 ## Reproduce the results (Windows, Python 3.12)
 ```powershell

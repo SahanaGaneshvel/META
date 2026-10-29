@@ -124,7 +124,8 @@ class ReplaySite:
             "ev_kw_headroom": round(float(r.ev_kw[t]), 1),
             "ev_kw_standard_smart_charger": round(float(self.results["llf"].ev_kw[t]), 1),
             "safety_layer_trimmed_kw": round(float(r.safety_clipped_kw[t]), 1),
-            "site_kw_headroom": round(float(sc.building_kw[t] + r.ev_kw[t])),
+            "site_total_kw": round(float(sc.building_kw[t] + r.ev_kw[t])),
+            "room_left_under_service_limit_kw": round(float(sc.service_kw - sc.building_kw[t] - r.ev_kw[t])),
         }
 
     def set_requirement(self, args: SetRequirement) -> dict:
@@ -168,7 +169,12 @@ class ReplaySite:
         for split in ("test", "dev"):
             path = RESULTS / f"capacity_summary_{split}.csv"
             if path.exists():
-                answer = expansion_answer(pd.read_csv(path), self.n_ports + args.extra_ports)
+                summary = pd.read_csv(path)
+                answer = expansion_answer(summary, self.n_ports + args.extra_ports)
+                today = expansion_answer(summary, self.n_ports)
+                key = "ev_demand_charges_all_chargers_usd_per_month_mean"
+                answer["ev_demand_charges_today_usd_per_month_mean"] = today[key]
+                answer["extra_cost_of_the_new_chargers_usd_per_month"] = answer[key] - today[key]
                 answer["evaluated_on"] = "summer 2017 (held-out test months)" if split == "test" else "development months"
                 answer["chargers_today"] = self.n_ports
                 return answer
@@ -222,7 +228,7 @@ class ReplaySite:
                 "window_ev_kwh": {"before": round(float(before.ev_kw[window].sum() * STEP_H)),
                                   "after": round(float(after.ev_kw[window].sum() * STEP_H))},
                 "month_added_demand_usd": {"before": round(m_before["added_demand_usd"]), "after": round(m_after["added_demand_usd"])},
-                "month_energy_served": {"before": round(m_before["energy_served"], 4), "after": round(m_after["energy_served"], 4)},
+                "month_energy_served": {"before": round(float(m_before["energy_served"]), 4), "after": round(float(m_after["energy_served"]), 4)},
                 "note": "the safety layer is unchanged; only the plan reacted"}
 
     def read_tariff(self, args: ReadTariff) -> dict:
@@ -246,8 +252,30 @@ class ReplaySite:
         if day in SITE.flex_alerts:
             hours = SITE.flex_alerts[day]
             return {"date": day, "alert": "CAISO Flex Alert (statewide)", "hours": hours or "not published",
-                    "source": "CAISO Flex Alert archive (frozen event calendar, docs/DATA_SPEC.md)"}
+                    "source": "CAISO Flex Alert archive (frozen event calendar, docs/DATA_SPEC.md)",
+                    "this_building_on_past_alert_days": self._past_alert_evidence(day, hours or (16, 21))}
         return {"date": day, "alert": None, "source": "CAISO Flex Alert archive (frozen event calendar)"}
+
+    def _past_alert_evidence(self, day: str, hours: tuple[int, int]) -> dict:
+        """How this building's metered load compared with normal on earlier alert days, over the same
+        hours: the evidence for sizing a forecast adjustment. Only days before `day` are used."""
+        load = self.site["building_kw"].tz_convert(LOCAL_TZ)
+        window = load[(load.index.hour >= hours[0]) & (load.index.hour < hours[1])]
+        daily = window.groupby(window.index.date).mean()
+        alert_days = {pd.Timestamp(d).date() for d in SITE.flex_alerts}
+        ratios = {}
+        for d in sorted(alert_days):
+            if str(d) >= day or d not in daily.index:
+                continue
+            near = [x for x in daily.index
+                    if abs((x - d).days) <= 14 and x not in alert_days and x.weekday() < 5]
+            ratios[str(d)] = round(float(daily[d] / daily[near].median()), 3)
+        if not ratios:
+            return {"note": "no earlier alert days in the data"}
+        values = list(ratios.values())
+        return {"building_load_vs_normal_weekdays": ratios, "median": round(float(np.median(values)), 3),
+                "hours_compared": list(hours), "method": "mean load over these hours vs. the median of "
+                "non-alert weekdays within 14 days; metered data, earlier days only"}
 
     def comparison(self) -> pd.DataFrame:
         rows = [evaluate(r, self.scenario, self.spec) | {"controller": name} for name, r in self.results.items()]

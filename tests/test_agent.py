@@ -101,7 +101,7 @@ def test_spend_guard_books_the_worst_case_first(tmp_path, monkeypatch):
     assert len(seen) == 1 and mc.spent_usd() == 6.0
 
     monkeypatch.setenv("HEADROOM_BUDGET_USD", "100000")  # .env can't lift the hard cap
-    (tmp_path / "spend.json").write_text('{"usd": 136.0}')
+    (tmp_path / "spend.json").write_text('{"usd": 91.0}')
     with pytest.raises(mc.BudgetExceeded):
         c.chat([{"role": "user", "content": "once more"}])
 
@@ -130,3 +130,13 @@ def test_failover_to_glimmer_when_the_link_is_down(tmp_path):
     fc.backup = Down()
     with pytest.raises(mc.LinkDown):  # neither model: the caller is told, charging is unaffected
         fc.chat([{"role": "user", "content": "hi"}])
+
+
+def test_numbers_in_answers_are_traced_to_tools():
+    from headroom.agent.operator import unsupported_numbers
+
+    result = [{"building_forecast_kw": {"p50": 760, "p99": 776}, "site_total_kw": 799, "energy_served_mean": 0.998}]
+    answer = "At 17:30 (4-9pm window) forecast P99 776 kW, total 799 kW, 99.8% of energy served."
+    assert unsupported_numbers(answer, result) == []
+    assert unsupported_numbers("forecast P99 798 kW", result) == ["798"]  # the total, mislabelled
+    assert unsupported_numbers("6 x 40 = 240 kWh", [], "6 vans need 40 kWh each") == []

@@ -51,13 +51,13 @@ def expansion_answer(summary: pd.DataFrame, n_ports: int, controller: str = "hea
         "drivers_fully_served_share_of_months": round(float(row["months_drivers_served"]), 3),
         "energy_served_mean": round(float(row["energy_served_mean"]), 4),
         "energy_served_worst_month": round(float(row["energy_served_worst"]), 4),
-        "added_demand_charges_usd_per_month_mean": round(float(row["added_demand_usd_mean"])),
-        "added_demand_charges_usd_per_month_p95": round(float(row["added_demand_usd_p95"])),
+        "ev_demand_charges_all_chargers_usd_per_month_mean": round(float(row["added_demand_usd_mean"])),
+        "ev_demand_charges_all_chargers_usd_per_month_p95": round(float(row["added_demand_usd_p95"])),
         "service_limit_violations": int(row["service_violations"]),
         "hosting_capacity_chargers": int(hosting_capacity(summary).get(controller, 0)),
     }
     if ref is not None:
-        answer["standard_smart_charger_added_demand_usd_mean"] = round(float(ref["added_demand_usd_mean"]))
+        answer["standard_smart_charger_ev_demand_charges_usd_per_month_mean"] = round(float(ref["added_demand_usd_mean"]))
         answer["standard_smart_charger_energy_served_mean"] = round(float(ref["energy_served_mean"]), 4)
     if nearest != n_ports:
         answer["note"] = f"closest simulated size to the {n_ports} asked"

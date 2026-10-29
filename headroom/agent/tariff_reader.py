@@ -1,6 +1,6 @@
-"""Tariff document -> TariffSpec with Muse Spark Open, checked by reproducing real bills.
+"""Tariff document -> TariffSpec with Muse Spark, checked by reproducing real bills.
 
-The model gets the document's text (Spark Open takes text, images, audio and video, not PDFs) and
+The model gets the document as text (so the same reader also works on models without PDF input) and
 must answer in the strict TariffSpec JSON schema. Two verifiers:
   - field accuracy against a hand-checked gold file, when one exists;
   - bill reproduction: the extracted spec and the gold spec bill the same real metered load for
@@ -49,6 +49,15 @@ def extract(path: Path, client: ModelClient | None = None, reasoning_effort: str
     return TariffSpec.model_validate_json(content), response
 
 
+_FILLER = {"demand", "period", "charge", "season", "rate"}
+
+
+def _norm(name: str) -> str:
+    """Compare names by meaning, not wording: "Summer Period" = "summer", "Peak" = "peak demand"."""
+    words = name.lower().replace("-", " ").replace("_", " ").split()
+    return "-".join(w for w in words if w not in _FILLER) or name.lower()
+
+
 def _flatten(spec: TariffSpec) -> dict[str, object]:
     out: dict[str, object] = {
         "demand_interval_minutes": spec.demand_interval_minutes,
@@ -56,14 +65,14 @@ def _flatten(spec: TariffSpec) -> dict[str, object]:
         "customer_charge_usd_per_month": round(spec.customer_charge_usd_per_month, 5),
     }
     for season in spec.seasons:
-        key = f"{season.name.lower()}"
+        key = _norm(season.name)
         out[f"{key}.months"] = tuple(sorted(season.months))
         for rate in season.energy:
-            name = rate.period.lower().replace(" ", "-")
+            name = _norm(rate.period)
             out[f"{key}.energy.{name}.rate"] = round(rate.usd_per_kwh, 5)
             out[f"{key}.energy.{name}.windows"] = tuple(sorted((w.days, w.start_hour, w.end_hour) for w in rate.windows))
         for charge in season.demand:
-            name = charge.name.lower()
+            name = _norm(charge.name)
             out[f"{key}.demand.{name}.rate"] = round(charge.usd_per_kw, 5)
             out[f"{key}.demand.{name}.windows"] = tuple(sorted((w.days, w.start_hour, w.end_hour) for w in charge.windows))
     return out

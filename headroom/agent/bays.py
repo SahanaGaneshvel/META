@@ -1,7 +1,7 @@
-"""Blocked-bay detection: Muse Spark Open watches the bay video; charger data decides.
+"""Blocked-bay detection: Muse Spark watches the bay video; charger data decides.
 
 A meter can't see a bay that's occupied but not charging (a finished EV left parked, or a car that
-never plugged in). The camera can. Spark Open gets the clip plus a still with the EV bays numbered,
+never plugged in). The camera can. Muse Spark gets the clip plus a still with the EV bays numbered,
 and answers in strict JSON per bay. A bay is reported blocked only when the camera sees a vehicle
 AND the charger for that bay reports no energy flowing; disagreements are flagged for a human.
 """

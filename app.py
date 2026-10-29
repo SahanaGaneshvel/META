@@ -13,7 +13,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from headroom.agent.operator import SYSTEM, run
+from headroom.agent.operator import DEMO_REQUESTS, SYSTEM, run
 from headroom.agent.site import ReplaySite
 from headroom.config import DATA, LOCAL_TZ
 from headroom.meta.client import FailoverClient, ModelClient, RecordingMissing
@@ -140,9 +140,25 @@ with tab_op:
                 with st.expander(f"{badge} `{step['tool']}`"):
                     st.code(step["arguments"], language="json")
                     st.json(step["result"])
+    asked = sum(m["role"] == "user" for m in st.session_state["shown"])
+    left, right = st.columns([4, 1])
+    if right.button("Start over", help="New conversation on a freshly simulated month"):
+        st.session_state["history"], st.session_state["shown"] = [{"role": "system", "content": SYSTEM}], []
+        load_site.clear()
+        st.rerun()
+    request, ask_at = None, None
+    if mode.startswith("Replay") and asked < len(DEMO_REQUESTS):
+        if day == "2017-06-21":
+            ask_at, text = DEMO_REQUESTS[asked]
+            if left.button(f"Ask the next recorded question: “{text}”", type="primary"):
+                request = text
+            else:
+                ask_at = None
+        else:
+            left.caption("The recorded conversation is on 21 June 2017: pick that replay day.")
     voice = st.audio_input("Speak a request") if hasattr(st, "audio_input") else None
     typed = st.chat_input("Ask the operator, e.g. “Fleet vans need 60 kWh each by 6 am. Can we do it?”")
-    request = typed
+    request = request or typed
     if voice is not None and st.session_state.get("last_voice") != voice.getvalue()[:64]:
         st.session_state["last_voice"] = voice.getvalue()[:64]
         request = [{"type": "text", "text": "(spoken request from the site manager)"}, audio_part(voice.getvalue())]
@@ -150,12 +166,16 @@ with tab_op:
         shown_text = request if isinstance(request, str) else "🎤 (voice request)"
         st.session_state["shown"].append({"role": "user", "text": shown_text})
         try:
-            turn = run(site, request if isinstance(request, str) else request, history=history, client=client)
+            if ask_at:
+                site.now_local = ask_at  # the site time the question was recorded at
+            turn = run(site, request, history=history, client=client)
             st.session_state["history"] = turn.messages
             steps = [{"tool": s.tool, "arguments": s.arguments, "result": s.result, "ok": s.ok}
                      for s in turn.steps if s.kind == "tool"]
             served = "Muse Glimmer (on site)" if turn.answered_by == "glimmer" else "Muse Spark (cloud)"
-            st.session_state["shown"].append({"role": "assistant", "text": f"{turn.answer}\n\n_— {served}_",
+            check = ("✅ every number traced to a tool result" if not turn.unsupported else
+                     "⚠️ not found in any tool result: " + ", ".join(turn.unsupported))
+            st.session_state["shown"].append({"role": "assistant", "text": f"{turn.answer}\n\n_— {served} · {check}_",
                                               "steps": steps})
             speak(turn.answer)
         except RecordingMissing:
@@ -170,7 +190,7 @@ with tab_op:
         st.rerun()
 
 with tab_tariff:
-    st.write("Muse Spark Open reads the utility's tariff into strict JSON. It's accepted only if it "
+    st.write("Muse Spark reads the utility's tariff into strict JSON. It's accepted only if it "
              "**reproduces the bill** for every month of real metered load.")
     doc = st.selectbox("Tariff document", ["cpau-e-4-tou-2026", "cpau-e-7-tou-2026"])
     with st.expander("How the verifier catches a misread (no model call)"):
@@ -220,7 +240,7 @@ with tab_expand:
 with tab_bays:
     from headroom.agent.bays import BayReport, decide, load_bays, observe, occupancy_accuracy
 
-    st.write("A meter can't see a bay that's occupied but not charging. The camera can: Muse Spark Open "
+    st.write("A meter can't see a bay that's occupied but not charging. The camera can: Muse Spark "
              "watches the clip and reports each numbered bay; a bay is **blocked** only if the camera sees a "
              "vehicle **and** the charger reports no energy flowing.")
     st.caption("Illustrative: public-domain parking-lot footage with bays designated as EV bays (this lot has no chargers). "
@@ -230,7 +250,7 @@ with tab_bays:
         st.image(str(still), width="stretch")
     if st.button("Check the bays"):
         try:
-            with st.spinner("Muse Spark Open is watching the clip…"):
+            with st.spinner("Muse Spark is watching the clip…"):
                 bays = load_bays("lot_close")
                 report = observe(DATA / "video" / "lot_close_5fps.mp4", DATA / "video" / "lot_close.jpg", bays,
                                  client=ModelClient("spark", mode="replay" if mode.startswith("Replay") else "auto"))
