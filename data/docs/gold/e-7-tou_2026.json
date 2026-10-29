@@ -1,0 +1,38 @@
+{
+  "utility": "City of Palo Alto Utilities",
+  "schedule": "E-7 TOU",
+  "effective": "2026-07-01",
+  "demand_interval_minutes": 15,
+  "holidays_off_peak": true,
+  "customer_charge_usd_per_month": 604.09,
+  "seasons": [
+    {
+      "name": "summer",
+      "months": [5, 6, 7, 8, 9, 10],
+      "energy": [
+        {"period": "peak", "usd_per_kwh": 0.20068, "windows": [{"days": "weekdays", "start_hour": 16, "end_hour": 21}]},
+        {"period": "mid-peak", "usd_per_kwh": 0.16724, "windows": [
+          {"days": "weekdays", "start_hour": 14, "end_hour": 16},
+          {"days": "weekdays", "start_hour": 21, "end_hour": 23}]},
+        {"period": "off-peak", "usd_per_kwh": 0.12834, "windows": []}
+      ],
+      "demand": [
+        {"name": "peak demand", "usd_per_kw": 28.96, "windows": [{"days": "weekdays", "start_hour": 16, "end_hour": 21}]},
+        {"name": "max demand", "usd_per_kw": 18.58, "windows": []}
+      ]
+    },
+    {
+      "name": "winter",
+      "months": [11, 12, 1, 2, 3, 4],
+      "energy": [
+        {"period": "peak", "usd_per_kwh": 0.13816, "windows": [{"days": "weekdays", "start_hour": 16, "end_hour": 21}]},
+        {"period": "mid-peak", "usd_per_kwh": 0.11123, "windows": [{"days": "weekdays", "start_hour": 9, "end_hour": 14}]},
+        {"period": "off-peak", "usd_per_kwh": 0.08000, "windows": []}
+      ],
+      "demand": [
+        {"name": "peak demand", "usd_per_kw": 16.58, "windows": [{"days": "weekdays", "start_hour": 16, "end_hour": 21}]},
+        {"name": "max demand", "usd_per_kw": 16.58, "windows": []}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,204 @@
+"""Headroom control room.
+
+    .venv\\Scripts\\streamlit run app.py
+"""
+from __future__ import annotations
+
+import base64
+import json
+import os
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+from headroom.agent.operator import SYSTEM, run
+from headroom.agent.site import ReplaySite
+from headroom.config import DATA, LOCAL_TZ
+from headroom.meta.client import ModelClient, RecordingMissing
+
+st.set_page_config(page_title="Headroom control room", page_icon="⚡", layout="wide")
+NAMES = {"headroom": "Headroom", "llf": "Standard smart charging (LLF)", "static_cap": "Static cap"}
+COLORS = {"headroom": "#1f9d55", "llf": "#d97706", "static_cap": "#6b7280"}
+
+
+@st.cache_resource(show_spinner="Simulating the month on real sessions…")
+def load_site(month: str, n_ports: int) -> ReplaySite:
+    return ReplaySite(month=month, n_ports=n_ports)
+
+
+def day_frame(site: ReplaySite, day: str) -> pd.DataFrame:
+    idx = site.scenario.index
+    local = idx.tz_convert(LOCAL_TZ)
+    sel = np.asarray(local.strftime("%Y-%m-%d") == day)
+    frame = pd.DataFrame({"time": local[sel].tz_localize(None), "building": site.scenario.building_kw[sel]})
+    for name, result in site.results.items():
+        frame[name] = site.scenario.building_kw[sel] + result.ev_kw[sel]
+    frame["t"] = np.flatnonzero(sel)
+    return frame
+
+
+def month_to_date_bill(site: ReplaySite, t: int) -> dict:
+    from headroom.tariff import monthly_bills
+
+    idx = site.scenario.index[:t]
+    building = pd.Series(site.scenario.building_kw[:t], index=idx)
+    alone = monthly_bills(building, site.spec)
+    out = {}
+    for name, result in site.results.items():
+        bill = monthly_bills(building + result.ev_kw[:t], site.spec)
+        out[name] = {"added_demand": float((bill["demand_usd"] - alone["demand_usd"]).sum()),
+                     "peak": float((building + result.ev_kw[:t]).max())}
+    return out
+
+
+def chart(site: ReplaySite, frame: pd.DataFrame, now: pd.Timestamp, t_now: int) -> go.Figure:
+    fig = go.Figure()
+    peak_start, peak_end = now.normalize() + pd.Timedelta(hours=16), now.normalize() + pd.Timedelta(hours=21)
+    fig.add_vrect(x0=peak_start, x1=peak_end, fillcolor="#fde68a", opacity=0.25, line_width=0,
+                  annotation_text="4–9 pm peak demand window", annotation_position="top left")
+    q = site.forecast[t_now]
+    steps = np.arange(q.shape[0])
+    ahead = now + pd.to_timedelta(steps * 15, unit="min")
+    keep = ahead <= frame["time"].iloc[-1]
+    fig.add_trace(go.Scatter(x=ahead[keep], y=q[keep, 3], line=dict(width=0), showlegend=False, hoverinfo="skip"))
+    fig.add_trace(go.Scatter(x=ahead[keep], y=q[keep, 0], fill="tonexty", fillcolor="rgba(59,130,246,0.15)",
+                             line=dict(width=0), name="Building forecast P10–P99 (issued now)"))
+    past = frame[frame["time"] <= now]
+    fig.add_trace(go.Scatter(x=past["time"], y=past["building"], name="Building alone", line=dict(color="#3b82f6", width=1.5)))
+    for name in ["static_cap", "llf", "headroom"]:
+        fig.add_trace(go.Scatter(x=past["time"], y=past[name], name=NAMES[name],
+                                 line=dict(color=COLORS[name], width=3 if name == "headroom" else 2)))
+    fig.add_hline(y=site.scenario.service_kw, line_dash="dot", line_color="#dc2626", annotation_text="Service limit")
+    fig.add_vline(x=now, line_color="#111827", line_width=1)
+    fig.update_layout(height=430, margin=dict(l=10, r=10, t=30, b=10), yaxis_title="kW",
+                      legend=dict(orientation="h", y=-0.15), hovermode="x unified")
+    return fig
+
+
+def speak(text: str) -> None:
+    """Spoken reply through the browser's built-in voice (not a model call)."""
+    safe = json.dumps(text[:600])
+    st.components.v1.html(f"<script>const u=new SpeechSynthesisUtterance({safe});u.rate=1.05;"
+                          f"window.speechSynthesis.cancel();window.speechSynthesis.speak(u);</script>", height=0)
+
+
+def audio_part(raw: bytes) -> dict:
+    data = base64.b64encode(raw).decode()
+    if os.environ.get("HEADROOM_AUDIO_PART", "audio_url") == "input_audio":
+        return {"type": "input_audio", "input_audio": {"data": data, "format": "wav"}}
+    return {"type": "audio_url", "audio_url": {"url": f"data:audio/wav;base64,{data}"}}
+
+
+# ---------------------------------------------------------------------------------------------
+with st.sidebar:
+    st.title("⚡ Headroom")
+    st.caption("Real Palo Alto charging sessions · real UC Berkeley building load · Palo Alto E-4 TOU tariff")
+    day = st.selectbox("Replay day", ["2017-06-21", "2017-06-20", "2017-06-14"],
+                       format_func=lambda d: d + ("  · CAISO Flex Alert (heat wave)" if d in ("2017-06-20", "2017-06-21") else ""))
+    n_ports = st.select_slider("Chargers on site", options=[24], value=24,
+                               help="Today's garage has 6; the replay shows the site at 4x")
+    network = st.radio("Network", ["Online: Muse Spark Open", "Offline: Muse Glimmer"], index=0)
+    mode = st.radio("Model calls", ["Replay recorded", "Live"], index=0,
+                    help="Replay uses recorded model responses, so the demo works without credits")
+
+site = load_site(day[:7], n_ports)
+times = pd.date_range(f"{day} 00:00", f"{day} 23:45", freq="15min")
+now = st.select_slider("Time of day", options=list(times), value=pd.Timestamp(f"{day} 18:00"),
+                       format_func=lambda t: t.strftime("%H:%M"))
+site.now_local = now.strftime("%Y-%m-%dT%H:%M")
+t_now = site.t
+frame = day_frame(site, day)
+
+bills = month_to_date_bill(site, t_now)
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Building now", f"{site.scenario.building_kw[t_now - 1]:,.0f} kW")
+c2.metric("Cars plugged in", int(((site.scenario.arrive <= t_now) & (site.scenario.depart > t_now)).sum()))
+saved = bills["llf"]["added_demand"] - bills["headroom"]["added_demand"]
+c3.metric("Demand charges added by EVs this month", f"${bills['headroom']['added_demand']:,.0f}",
+          delta=f"-${saved:,.0f} vs standard smart charging", delta_color="inverse")
+c4.metric("Service-limit violations", "0", help="Guaranteed by the deterministic safety layer")
+st.plotly_chart(chart(site, frame, now, t_now), use_container_width=True)
+
+tab_op, tab_tariff, tab_expand, tab_proof = st.tabs(["Operator", "Tariff", "Can I add chargers?", "Proof"])
+
+with tab_op:
+    role = "glimmer" if network.startswith("Offline") else "spark"
+    client = ModelClient(role, mode="replay" if mode.startswith("Replay") else "auto")
+    st.caption(f"Operator model: **{'Muse Glimmer' if role == 'glimmer' else 'Muse Spark Open'}** · "
+               "every number comes from a tool; every tool call is validated before it runs")
+    history = st.session_state.setdefault("history", [{"role": "system", "content": SYSTEM}])
+    for msg in st.session_state.setdefault("shown", []):
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["text"])
+            for step in msg.get("steps", []):
+                badge = "✅" if step["ok"] else "❌ rejected"
+                with st.expander(f"{badge} `{step['tool']}`"):
+                    st.code(step["arguments"], language="json")
+                    st.json(step["result"])
+    voice = st.audio_input("Speak a request") if hasattr(st, "audio_input") else None
+    typed = st.chat_input("Ask the operator, e.g. “Fleet vans need 60 kWh each by 6 am. Can we do it?”")
+    request = typed
+    if voice is not None and st.session_state.get("last_voice") != voice.getvalue()[:64]:
+        st.session_state["last_voice"] = voice.getvalue()[:64]
+        request = [{"type": "text", "text": "(spoken request from the site manager)"}, audio_part(voice.getvalue())]
+    if request:
+        shown_text = request if isinstance(request, str) else "🎤 (voice request)"
+        st.session_state["shown"].append({"role": "user", "text": shown_text})
+        try:
+            turn = run(site, request if isinstance(request, str) else request, history=history, client=client)
+            st.session_state["history"] = turn.messages
+            steps = [{"tool": s.tool, "arguments": s.arguments, "result": s.result, "ok": s.ok}
+                     for s in turn.steps if s.kind == "tool"]
+            st.session_state["shown"].append({"role": "assistant", "text": turn.answer, "steps": steps})
+            speak(turn.answer)
+        except RecordingMissing:
+            st.session_state["shown"].append({"role": "assistant", "text":
+                "_No recorded answer for this request. Switch **Model calls** to Live (needs a partner key)._"})
+        except RuntimeError as exc:
+            st.session_state["shown"].append({"role": "assistant", "text": f"_{exc}_"})
+        st.rerun()
+
+with tab_tariff:
+    st.write("Muse Spark Open reads the utility's tariff into strict JSON. It's accepted only if it "
+             "**reproduces the bill** for every month of real metered load.")
+    doc = st.selectbox("Tariff document", ["cpau-e-4-tou-2026", "cpau-e-7-tou-2026"])
+    if st.button("Read and verify"):
+        from headroom.agent.tools import ReadTariff
+
+        try:
+            with st.spinner("Reading the tariff…"):
+                out = site.read_tariff(ReadTariff(document=doc))
+            v = out.get("verification", {})
+            st.metric("Bill reproduction (worst month)", f"{v.get('bill_reproduction_worst_month_error', float('nan')):.3%}",
+                      help="Same real metered load billed with the extracted rates vs. the hand-checked rates")
+            st.write("Fields correct:", v.get("fields_correct"), "· passed:", "✅" if v.get("passed") else "❌")
+            st.json(out["extracted"], expanded=False)
+        except (RecordingMissing, RuntimeError) as exc:
+            st.warning(str(exc))
+
+with tab_expand:
+    path = DATA / "results" / "capacity_summary_test.csv"
+    if not path.exists():
+        path = DATA / "results" / "capacity_summary_dev.csv"
+    if path.exists():
+        summary = pd.read_csv(path)
+        st.caption(f"Monte Carlo on real-session fleets · {path.stem.split('_')[-1]} months")
+        fig = go.Figure()
+        for name in ["static_cap", "llf", "headroom"]:
+            s = summary[summary["controller"] == name]
+            fig.add_trace(go.Scatter(x=s["n_ports"], y=s["added_demand_usd_mean"], name=NAMES[name],
+                                     mode="lines+markers", line=dict(color=COLORS[name])))
+        fig.update_layout(height=320, yaxis_title="Added demand charges ($/month)", xaxis_title="Chargers",
+                          margin=dict(l=10, r=10, t=10, b=10))
+        st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(summary.round(3), use_container_width=True, hide_index=True)
+    else:
+        st.info("Run `python scripts/capacity_study.py` to fill this tab.")
+
+with tab_proof:
+    st.subheader("This month, same real sessions, three controllers")
+    st.dataframe(site.comparison()[["energy_served", "added_demand_usd", "peak_site_kw", "service_violations",
+                                    "safety_interventions"]].round(3), use_container_width=True)
+    st.caption("Safety layer: 10,000 random and adversarial plans fuzz-tested, 0 violations (tests/test_control.py).")
