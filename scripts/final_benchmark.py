@@ -2,9 +2,11 @@
 
     python scripts/final_benchmark.py            # 24 chargers (4x today's garage), seeds 1-3
 
-Controllers: static cap, least-laxity-first, Caltech adacharge MPC (unmodified), Headroom.
-Ablations: perfect-foresight oracle (upper bound), strict "never set a new peak" policy, profile-only
-forecaster (what LightGBM adds), and a labelled stress test with intra-hour variability (sigma 2%).
+Controllers: static cap, least-laxity-first, Caltech adacharge MPC (unmodified), Headroom (on the
+hour-of-day profile forecast: no trained model at runtime).
+Ablations: perfect-foresight oracle (upper bound), strict "never set a new peak" policy, the LightGBM
+blend forecast instead of the profile (what a trained model would add), and a labelled stress test
+with intra-hour variability (sigma 2%).
 Writes data/results/final_runs.csv and final_summary.csv.
 """
 from __future__ import annotations
@@ -37,7 +39,7 @@ MONTHS = ["2017-05", "2017-06", "2017-07", "2017-08", "2017-09", "2017-10"]
 N_PORTS = int(os.environ.get("BENCH_PORTS", "24"))
 SEEDS = [int(x) for x in os.environ.get("BENCH_SEEDS", "1,2,3").split(",")]
 CONTROLLERS = os.environ.get("BENCH_CONTROLLERS", "static_cap,llf,adacharge_mpc,headroom,headroom_oracle,"
-                             "headroom_strict,headroom_profile_only,headroom_stress,llf_stress").split(",")
+                             "headroom_strict,headroom_lightgbm,headroom_stress,llf_stress").split(",")
 
 _W: dict = {}
 
@@ -46,7 +48,6 @@ def _load() -> None:
     _W["site"] = pd.read_parquet(PROCESSED / "site_15min.parquet")
     _W["sessions"] = pd.read_parquet(PROCESSED / "sessions.parquet")
     _W["spec"] = load_gold("e-4-tou_2026")
-    _W["profile"] = ProfileForecaster.fit(_W["site"]["building_kw"], "2016-01-01", "2017-05-01")
 
 
 def run_one(job: tuple) -> dict:
@@ -69,12 +70,11 @@ def run_one(job: tuple) -> dict:
     else:
         if name == "headroom_oracle":
             forecaster = OracleForecaster()
-        elif name in ("headroom_profile_only", "headroom_stress"):
+        elif name == "headroom_stress":
             # the stress run's meter differs from the saved forecasts' inputs, so it forecasts live
-            forecaster = _W["profile"] if name == "headroom_profile_only" else ProfileForecaster.fit(
-                history, "2016-01-01", "2017-05-01", noise_sigma=0.02)
+            forecaster = ProfileForecaster.fit(history, "2016-01-01", "2017-05-01", noise_sigma=0.02)
         else:
-            forecaster = PrecomputedForecaster()
+            forecaster = PrecomputedForecaster("lgbm" if name == "headroom_lightgbm" else "profile")
         controller = HeadroomMPC(forecaster, spec, history, unserved_usd_per_kwh=2.0 if name == "headroom_strict" else 25.0)
     result = simulate(scenario, controller, safety)
     row = evaluate(result, scenario, spec)

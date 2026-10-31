@@ -277,6 +277,23 @@ class ReplaySite:
                 "hours_compared": list(hours), "method": "mean load over these hours vs. the median of "
                 "non-alert weekdays within 14 days; metered data, earlier days only"}
 
+    def other_buildings(self) -> dict:
+        path = RESULTS / "portfolio_summary.csv"
+        if not path.exists():
+            raise RuntimeError("portfolio study not run yet (scripts/portfolio_study.py)")
+        p = pd.read_csv(path)
+        std, head = p["chargers_standard_smart_charging"], p["chargers_headroom"]
+        both = p[std > 0]
+        gain = both["chargers_headroom"] / both["chargers_standard_smart_charging"] - 1
+        return {"buildings": len(p), "us_sites": int(p["site_id"].nunique()),
+                "building_types": p["primaryspaceusage"].value_counts().head(5).to_dict(),
+                "months_simulated": "Jul-Aug 2017 (held out)", "data": "BDG2 real metered buildings",
+                "median_extra_chargers_share": round(float(gain.median()), 3),
+                "share_of_buildings_where_headroom_fits_more": round(float((both["extra_chargers"] > 0).mean()), 3),
+                "chargers_total_standard_smart_charging": int(std.sum()), "chargers_total_headroom": int(head.sum()),
+                "service_limit_violations": int(p["service_violations"].sum()),
+                "assumption": "service size not in the data: peak before the screened months / 0.8"}
+
     def comparison(self) -> pd.DataFrame:
         rows = [evaluate(r, self.scenario, self.spec) | {"controller": name} for name, r in self.results.items()]
         return pd.DataFrame(rows).set_index("controller")

@@ -14,3 +14,6 @@ data/*.log
 data/results/*.pkl
 data/forecasts_v1/
 data/spend.json
+data/forecasts_lgbm/*.npz
+kaggle_headroom.zip
+data/results/check_cache/

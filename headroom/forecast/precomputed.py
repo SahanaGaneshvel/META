@@ -1,4 +1,8 @@
-"""Read walk-forward forecasts saved by scripts/precompute_forecasts.py."""
+"""Read walk-forward forecasts saved by scripts/precompute_forecasts.py.
+
+data/forecasts/        the hour-of-day profile: what Headroom runs on (no trained model at runtime)
+data/forecasts_lgbm/   the LightGBM blend: an offline ablation only, kept to show what it adds
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,10 +13,12 @@ import pandas as pd
 from ..config import DATA
 
 FORECASTS = DATA / "forecasts"
+SOURCES = {"profile": FORECASTS, "lgbm": DATA / "forecasts_lgbm"}
 
 
 @dataclass
 class PrecomputedForecaster:
+    source: str = "profile"
     horizons: int = 96
     quantile_levels: tuple[float, ...] = (0.1, 0.5, 0.9, 0.99)
 
@@ -22,9 +28,10 @@ class PrecomputedForecaster:
         filled = 0
         while filled < len(index):
             month = index[filled].tz_convert("America/Los_Angeles").strftime("%Y-%m")
-            path = FORECASTS / f"{month}.npz"
+            path = SOURCES[self.source] / f"{month}.npz"
             if not path.exists():
-                raise FileNotFoundError(f"no forecasts for {month}: run scripts/precompute_forecasts.py {month}")
+                raise FileNotFoundError(f"no {self.source} forecasts for {month}: "
+                                        f"run scripts/precompute_forecasts.py {month} --model {self.source}")
             saved = np.load(path)
             start = pd.Timestamp(str(saved["start"]))
             offset = int((index[filled] - start) / pd.Timedelta("15min"))

@@ -60,6 +60,7 @@ class SiteContext(Protocol):
     def grid_event_adjustment(self, args: GridEventAdjustment) -> dict: ...
     def read_tariff(self, args: ReadTariff) -> dict: ...
     def grid_alerts(self, args: GridAlerts) -> dict: ...
+    def other_buildings(self) -> dict: ...
 
 
 TOOLS: dict[str, tuple[type[_Args], str, str]] = {
@@ -80,6 +81,9 @@ TOOLS: dict[str, tuple[type[_Args], str, str]] = {
                     "Extract a utility tariff into structured rates and verify it by reproducing real bills."),
     "check_grid_alerts": (GridAlerts, "grid_alerts",
                           "Grid-stress alerts (CAISO Flex Alerts) for a date, with their source."),
+    "compare_other_buildings": (NoArgs, "other_buildings",
+                                "Results of the same check on many other real metered buildings: how many chargers "
+                                "fit with and without Headroom on each building's existing connection."),
 }
 
 

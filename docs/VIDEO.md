@@ -1,32 +1,31 @@
-# Demo video — script and shot list (3:00 hard limit)
+# Demo video: script and shot list (3:00 hard limit)
 
-Judges watch this live in the final round. Rules: show only what was built during the hackathon; every number on screen comes from a script in `scripts/` (marked ▶ below with its source); real data only. Numbers in [brackets] are filled from the final benchmark on the held-out months before recording.
+The final judges watch this live. Rules: show only what was built during the hackathon; every number on screen
+comes from a file in `data/results/` (source marked ▶); real data only. Fill [brackets] from the final run.
 
-**Format:** screen capture of the control room (1920×1080) + voice-over + three title cards. Captions burned in (judges may watch muted). Music low.
+**Format:** screen capture of the app (1920×1080, browser zoom 110%) + voice-over + 3 title cards. Burned-in
+captions (judges may watch muted). Music low. One idea per scene; cut, don't scroll.
 
-| Time | On screen | Voice-over (≈150 words/min) |
+| Time | On screen | Voice-over (~150 words/min) |
 |---|---|---|
-| **0:00–0:12** Hook | Black card, white text, a 15-minute spike on a load chart: **"This 15 minutes cost $2,572."** | "One fifteen-minute spike at six p.m. cost this building two thousand five hundred dollars. The electricity in it cost less than three." |
-| **0:12–0:30** Problem | Control room, building load line; caption: *one meter · building + chargers · 1,000 kW service* | "Malls, offices and depots share one meter between the building and the chargers. The utility bills the highest fifteen minutes of the month. So owners stop adding chargers, or cap them and waste the room they have." |
-| **0:30–0:42** What Headroom is | Architecture card (one line each): forecaster → planner → safety layer; Muse Spark operator; Muse Glimmer backup | "Headroom runs the chargers inside the room the building leaves. A calibrated forecast sizes it, a planner fills it, a safety layer guarantees the limit, and Muse Spark runs the site." |
-| **0:42–1:05** Tariff, verified | Tariff tab: PDF → JSON → **"bill reproduced within [x]%"** ▶ `read_tariff`; then the misread demo: **"24/25 fields right → bill off 13.8% → rejected"** | "First, Muse Spark reads the utility's actual tariff. We don't trust it: we bill two years of real meter data with what it read. It matches. Read one number wrong and the bill is off fourteen percent, so it's rejected." |
-| **1:05–1:45** The real heat-wave day | Replay **21 June 2017 (real CAISO Flex Alert)**, 24 chargers. Slider sweeps 2 pm → 9 pm. Three lines: static cap, standard smart charging, Headroom; forecast band; live counter **"demand charges added: $2,670 vs $4,231 per month (test months)"** ▶ `final_benchmark` | "This is a real heat-wave day in Palo Alto, replayed at four times today's chargers. The standard smart charger can't see the building, so it stacks cars onto the peak. Headroom sees the building's forecast and fills the valleys. Same cars, nearly all the energy delivered, thirty-seven percent lower demand charges." |
-| **1:45–2:05** Operator by voice | Operator tab; speak: *"Fleet vans need forty kilowatt-hours each by six a.m. Can we do it?"* Trace shows `set_requirement` ✅ with the probability | "The site manager just asks. Muse Spark calls the planner. Every tool call is checked before it runs; the answer comes with a probability from the calibrated forecast, not a guess." |
-| **2:05–2:20** Blocked bay | Bays tab: annotated clip, **bay N blocked** (camera sees a car, charger reports no power) | "Meters can't see a bay that's occupied but not charging. Muse Spark watches the camera; the charger data confirms it. In the real data, that is 28 percent of plugged-in time." |
-| **2:20–2:35** Can I add chargers? | Expansion tab curve: chargers vs. added demand charges, three controllers; agent answer for +18 ▶ `capacity_study test` | "Ask whether to expand, and it answers from simulation on real sessions: how much it costs, how often drivers are fully served, and zero limit violations." |
-| **2:35–2:48** Proof | Proof tab: held-out benchmark + ablations (oracle bound: Headroom gets 69% of what is physically possible), P99 coverage [99.6]%, **10,000 fuzzed plans · 0 violations** | "On months it never saw. Within reach of a perfect-foresight controller. Ten thousand adversarial plans, zero violations." |
-| **2:48–3:00** Close | Card: **"Built during the hackathon, Oct 26–Nov 4: everything shown."** Meta models: Muse Spark · Muse Glimmer. Real data: Palo Alto · UC Berkeley · CPAU · CAISO. Next: any utility, India. | "The model proposes, the math decides, the safety layer guarantees. Headroom: more chargers, same connection." |
+| **0:00–0:10** Hook | Black card, white text over a load spike: **"This 15 minutes cost $2,572."** | "One fifteen-minute charging spike at six p.m. added two and a half thousand dollars to this building's bill. The electricity in it cost three." |
+| **0:10–0:25** Problem | Overview page, "The problem" card | "Malls, offices and depots share one meter between the building and the chargers, and the utility bills the highest fifteen minutes of the month. So owners stop adding chargers, or wait years for a grid upgrade." |
+| **0:25–0:40** What it is | Overview: the four "How it works" cards, one highlighted at a time | "Headroom sees the building, plans the charging in the room it leaves, and a safety layer guarantees the limit. Meta's Muse Spark runs the site." |
+| **0:40–1:10** Heat-wave day | Live replay, 21 June 2017; drag 2 pm → 9 pm; orange climbs into the peak, green stays under it; metric **−$[x] vs standard smart charging** | "This is a real heat-wave alert day in Palo Alto, with four times today's chargers. Standard smart charging can't see the building, so it charges straight into the evening peak. Headroom fills the valleys. Same cars, the energy delivered, thirty-seven percent lower demand charges." ▶ final_summary |
+| **1:10–1:35** Operator by voice | Ask the operator: hold the mic, say *"Fleet vans need forty kilowatt-hours each by six a.m. Can we do it?"*; transcript appears; answer + "every number traced to a tool result ✅"; open "How it got this" | "The site manager just asks. Muse Voice Transcribe hears it, Muse Spark calls the planner. It can only act through checked tools, and every number it says is traced back to the math." |
+| **1:35–1:50** Grid alert | Recorded question 2: the alert, sized from past alert days, re-plan result | "On a grid alert it sizes the change from this building's own past alert days, cites the source, and the planner decides." |
+| **1:50–2:05** Internet cut | Sidebar toggle **Cut the site's internet** → ask again → *"— Muse Glimmer (on site)"* | "Cut the internet. Muse Glimmer, Meta's open-weight model on the site's own GPU, takes over. The chargers never depended on either." |
+| **2:05–2:30** Any building | Check any building: **"Tested on [N] real buildings: median +[x]% chargers"**; click *Try a sample building* → answer card | "Does it work beyond one site? On [N] real buildings across [S] US sites, it fits a median [x] percent more chargers on the same connection. Upload your own meter data and get your answer." ▶ portfolio_summary |
+| **2:30–2:45** Checked AI | How the AI is checked: tariff **25/25 fields, bill reproduced** → misread demo **rejected** | "Muse Spark reads the utility's tariff, and we only accept it if it reproduces the real bill. Misread one number and it's rejected." |
+| **2:45–3:00** Close | Card: **"[48] chargers instead of [36]. Same connection. 0 violations."** · Meta: Muse Spark · Muse Voice Transcribe · Muse Glimmer · Built Oct 26–Nov 4 | "The model proposes, the math decides, the safety layer guarantees. Headroom: more chargers, same connection." |
 
-## Shots to capture (in order of recording)
-1. Tariff tab: live extraction result + misread expander.
-2. Replay: slider 14:00 → 21:00 on 2017-06-21, steady 2 s per step (screen recorder at 60 fps; speed up in edit).
-3. Operator: voice request (record the mic audio separately as backup), expand the tool trace.
-4. Bays tab: annotated still + decision table.
-5. Expansion tab, Proof tab: slow scroll.
-6. Title cards (Canva/Figma; same font as UI).
+## Shots to capture (in order)
+1. Overview (static, 5 s). 2. Live replay drag 14:00 → 21:00 at 2 s per step (speed up in edit).
+3. Operator: voice request (Live mode; costs < $0.01), then recorded question 2 (Replay).
+4. Sidebar toggle → Glimmer answer (Replay). 5. Check any building: sample. 6. Tariff verify + misread.
+7. Title cards (`docs/cards/`).
 
 ## Before recording
-- [ ] Final numbers filled in from `data/results/final_summary.csv` and `capacity_summary_test.csv`
-- [ ] All model calls in the script recorded (`data/recordings/`), app in **Replay recorded** mode so takes are identical
-- [ ] Owner's own bay footage swapped in, plates and faces blurred, caption "illustrates the problem"
-- [ ] Check every on-screen claim against its source script
+- [ ] Numbers in the cards match `data/results/final_summary.csv`, `capacity_summary_test.csv`, `portfolio_summary.csv`
+- [ ] Glimmer recordings present (docs/GLIMMER_KAGGLE.md); app in Replay except the voice shot
+- [ ] Browser: clean profile, no bookmarks bar, 110% zoom; notifications off

@@ -30,6 +30,7 @@ DEMO_REQUESTS = [  # (site time, request): recorded by scripts/record_demo.py, i
     ("2017-06-21T18:00", "Fleet vans need 40 kWh each by 6 am tomorrow, six of them, plugging in at 7 pm. Can we do it?"),
     ("2017-06-21T18:00", "Why did we charge the way we did at 5:30 pm?"),
     ("2017-06-21T18:00", "Can I add 12 more chargers? What would it cost me?"),
+    ("2017-06-21T18:00", "Would Headroom work at our other buildings too?"),
 ]
 
 _NUMBER = re.compile(r"(?<![\w.:])\d[\d,]*(?:\.\d+)?")

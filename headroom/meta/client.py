@@ -18,8 +18,8 @@ card). Every live call goes through ModelClient.chat, which:
       .env cannot raise: $95);
     - after the response, replaces the booking with the cost of the reported token usage (prices
       per million tokens in .env); a response without usage keeps the worst case;
-    - keeps the booking for any call that fails after it may have reached the server, and refunds it
-      only when the connection never opened;
+    - refunds the booking when the request never reached the model (no connection, or a 4xx
+      rejection, which Meta doesn't bill) and keeps it for timeouts and server errors;
     - never retries on its own (the SDK's silent retries would each be billed).
 Replays and models on localhost cost nothing. data/spend.json is the running total: don't delete it.
 """
@@ -46,7 +46,8 @@ PROVIDERS = {  # base URLs; model ids come from .env because each partner names 
     "together": "https://api.together.xyz/v1",
     "openrouter": "https://openrouter.ai/api/v1",
 }
-DEFAULT_MODELS = {"spark": "meta-models/muse-spark-open-1026"}  # Baseten's hackathon id
+DEFAULT_MODELS = {"spark": "muse-spark-1.3", "glimmer": "muse-glimmer"}  # the recordings in data/recordings use these
+DEFAULT_PROVIDERS = {"spark": "meta"}  # Glimmer runs on the site's own GPU: set HEADROOM_GLIMMER_BASE_URL
 
 
 def _env(name: str, default: str = "") -> str:
@@ -68,7 +69,7 @@ class RoleConfig:
         prefix = f"HEADROOM_{role.upper()}"
         api_key = _env(f"{prefix}_API_KEY")
         meta_key = role == "spark" and not api_key and _env("MODEL_API_KEY")  # the name Meta's docs use
-        provider = "meta" if meta_key else _env(f"{prefix}_PROVIDER", "baseten").lower()
+        provider = "meta" if meta_key else _env(f"{prefix}_PROVIDER", DEFAULT_PROVIDERS.get(role, "")).lower()
         base_url = _env(f"{prefix}_BASE_URL") or PROVIDERS.get(provider, "")
         return cls(role=role, base_url=base_url, api_key=api_key or meta_key or "",
                    model=_env(f"{prefix}_MODEL", DEFAULT_MODELS.get(role, "")))
@@ -113,6 +114,16 @@ def _cost(usage: dict | None) -> float | None:
     # never below Muse Spark's standard rates, so a mistyped price can't understate the spend
     return (usage.get("prompt_tokens", 0) * max(_price("HEADROOM_USD_PER_M_INPUT", 1.25), 1.25)
             + usage.get("completion_tokens", 0) * max(_price("HEADROOM_USD_PER_M_OUTPUT", 4.25), 4.25)) / 1e6
+
+
+def _not_billed(exc: Exception) -> bool:
+    """The request never reached the model: no connection, or rejected by the API (4xx: bad request,
+    auth, rate limit), which is not billed. Timeouts and 5xx keep the worst-case booking."""
+    from openai import APIConnectionError, APIStatusError, APITimeoutError
+
+    if isinstance(exc, APIConnectionError):
+        return not isinstance(exc, APITimeoutError)
+    return isinstance(exc, APIStatusError) and 400 <= exc.status_code < 500 and exc.status_code != 408
 
 
 def _book(worst_usd: float) -> None:
@@ -170,10 +181,8 @@ class ModelClient:
         try:
             response = client.chat.completions.create(model=self.config.model, messages=messages, **kwargs)
         except Exception as exc:
-            from openai import APIConnectionError, APITimeoutError
-
-            if isinstance(exc, APIConnectionError) and not isinstance(exc, APITimeoutError):
-                _add(-worst)  # the request never reached the server
+            if _not_billed(exc):
+                _add(-worst)
             raise
         payload = response.model_dump(exclude_none=True)
         cost = _cost(payload.get("usage"))
@@ -236,3 +245,80 @@ class FailoverClient:
 def as_data_url(path: Path) -> str:
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
+
+
+# ------------------------------------------------------------------ speech to text
+
+TRANSCRIBE_MODEL = "muse-voice-transcribe-1.0"
+TRANSCRIBE_URL = "https://api.meta.ai/v1/asr/transcribe"
+TRANSCRIBE_USD_PER_HOUR = 0.18
+
+
+def to_pcm16_16k(raw: bytes) -> tuple[bytes, float]:
+    """Any PCM WAV (e.g. a browser recording at 48 kHz stereo) -> mono 16-bit 16 kHz WAV, as Muse
+    Voice Transcribe requires. Returns the WAV and its duration in seconds."""
+    import io
+    import wave
+    from math import gcd
+
+    import numpy as np
+    from scipy.signal import resample_poly
+
+    with wave.open(io.BytesIO(raw)) as w:
+        rate, channels, width = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        frames = w.readframes(w.getnframes())
+    dtype = {1: np.uint8, 2: np.int16, 4: np.int32}[width]
+    x = np.frombuffer(frames, dtype=dtype).astype(np.float64)
+    if width == 1:
+        x = (x - 128) * 256
+    elif width == 4:
+        x = x / 65536
+    x = x.reshape(-1, channels).mean(axis=1)
+    if rate != 16000:
+        g = gcd(16000, rate)
+        x = resample_poly(x, 16000 // g, rate // g)
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(np.clip(x, -32768, 32767).astype(np.int16).tobytes())
+    return out.getvalue(), len(x) / 16000
+
+
+def transcribe(raw_wav: bytes, mode: str | None = None, recordings: Path = RECORDINGS) -> str:
+    """Muse Voice Transcribe (Meta Model API): spoken request -> text, with record/replay and the
+    spend guard ($0.18 per hour of audio, booked before the call)."""
+    import requests
+
+    audio, seconds = to_pcm16_16k(raw_wav)
+    mode = (mode or _env("HEADROOM_MODEL_MODE", "auto")).lower()
+    path = recordings / f"asr_{hashlib.sha256(TRANSCRIBE_MODEL.encode() + audio).hexdigest()[:32]}.json"
+    if mode in ("auto", "replay") and path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))["response"]["transcript"]
+    if mode == "replay":
+        raise RecordingMissing("no recording for this audio; switch Model calls to Live")
+    key = RoleConfig.from_env("spark").api_key
+    if not key:
+        raise RuntimeError("set MODEL_API_KEY (Meta Model API) in .env for live transcription")
+    cost = max(seconds, 1.0) / 3600 * TRANSCRIBE_USD_PER_HOUR
+    _book(cost)
+    started = time.perf_counter()
+    try:
+        r = requests.post(TRANSCRIBE_URL, headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
+                          files={"request": (None, json.dumps({"mode": "PUSH_TO_TALK", "model": TRANSCRIBE_MODEL,
+                                                               "audioEncoding": "WAV"}), "application/json"),
+                                 "audio": ("request.wav", audio, "audio/wav")}, timeout=120)
+    except requests.ConnectionError:
+        _add(-cost)  # never reached the server
+        raise
+    if 400 <= r.status_code < 500:
+        _add(-cost)  # rejected: not billed
+    if not r.ok:
+        raise RuntimeError(f"transcription failed: {r.status_code} {r.text[:200]}")
+    payload = r.json()
+    recordings.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"request": {"model": TRANSCRIBE_MODEL, "audio_seconds": round(seconds, 2)},
+                                "response": payload, "seconds": round(time.perf_counter() - started, 2),
+                                "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S")}, indent=1), encoding="utf-8")
+    return payload["transcript"]
