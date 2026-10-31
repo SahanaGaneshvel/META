@@ -10,6 +10,7 @@ The spend guard in headroom/meta/client.py applies.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -23,7 +24,8 @@ from headroom.agent.tools import ReadTariff  # noqa: E402
 from headroom.config import DATA  # noqa: E402
 from headroom.meta.client import ModelClient, spent_usd  # noqa: E402
 
-REQUESTS = DEMO_REQUESTS  # the operator moments in docs/VIDEO.md, in order
+# the operator moments in docs/VIDEO.md, in order; RECORD_N=5 records only the first five
+REQUESTS = DEMO_REQUESTS[: int(os.environ.get("RECORD_N", len(DEMO_REQUESTS)))]
 
 
 def step(title: str, fn) -> None:
