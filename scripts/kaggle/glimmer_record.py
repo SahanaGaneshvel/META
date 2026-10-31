@@ -35,6 +35,7 @@ sh(f"cd {WORK} && pip install -q -r requirements.lock.txt || pip install -q pand
    "pyarrow requests highspy")
 
 # 2. Ollama + Muse Glimmer on both T4s
+sh("apt-get install -y -qq zstd > /dev/null || (apt-get update -qq && apt-get install -y -qq zstd)")
 sh("curl -fsSL https://ollama.com/install.sh | sh")
 server = subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 time.sleep(10)

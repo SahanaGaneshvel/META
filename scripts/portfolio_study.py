@@ -5,7 +5,7 @@
     PORTFOLIO_SHARE=0.9 python scripts/portfolio_study.py run   # sensitivity: tighter service size
 
 Buildings: BDG2 electricity meters at US sites, 2016-2017, kept only if the meter is near-complete
-(<= 2% missing hours, no zero/flat stretch longer than a day) and the peak is 100-2,500 kW (sites that
+(<= 2% missing hours, no zero/flat stretch longer than a day) and the peak is 100-1,500 kW (sites that
 pay demand charges and could host a garage). A fixed-seed sample, spread across sites and building
 uses. Each building is screened on the held-out summer months (Jul-Aug 2017) with its service size
 from the 80% continuous-load rule (it isn't in the data), real Palo Alto sessions and the E-4 TOU tariff.
@@ -48,7 +48,7 @@ def select() -> None:
     keep = []
     for b in raw.columns:
         s = raw[b]
-        if s.isna().mean() > 0.02 or not 100 <= s.max() <= 2500:
+        if s.isna().mean() > 0.02 or not 100 <= s.max() <= 1500:
             continue
         flat = (s.diff().fillna(1) == 0).astype(int)
         longest_flat = flat.groupby((flat == 0).cumsum()).sum().max()

@@ -75,7 +75,7 @@ def run_one(job: tuple) -> dict:
             forecaster = ProfileForecaster.fit(history, "2016-01-01", "2017-05-01", noise_sigma=0.02)
         else:
             forecaster = PrecomputedForecaster("lgbm" if name == "headroom_lightgbm" else "profile")
-        controller = HeadroomMPC(forecaster, spec, history, unserved_usd_per_kwh=2.0 if name == "headroom_strict" else 25.0)
+        controller = HeadroomMPC(forecaster, spec, history, unserved_usd_per_kwh=2.0 if name == "headroom_strict" else None)
     result = simulate(scenario, controller, safety)
     row = evaluate(result, scenario, spec)
     w = scenario.n_window

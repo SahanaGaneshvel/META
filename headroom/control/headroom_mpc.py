@@ -4,9 +4,12 @@ Every interval it plans all plugged-in cars to their departures (at most 24 h ah
 
     min   energy cost + unserved_usd_per_kwh * unserved + demand rates * ceiling raises
 
-The default unserved value ($25/kWh) is "drivers first": a car leaving without its energy costs
-more than the ceiling raise that would have delivered it, so peaks rise only by the minimum the
-physics requires. A low value (e.g. $2/kWh) gives the strict "never set a new peak" policy.
+The default unserved value is "drivers first" as a strict priority: it is set from the tariff above
+the most demand charge one kWh could ever trigger (every demand rate, with the kWh delivered in one
+15-minute interval: 4 x the sum of the $/kW rates, x 1.5; about $309/kWh on E-4 TOU), so the planner
+never leaves energy undelivered to save on demand charges; among plans that serve everyone it picks
+the cheapest, raising peaks only by the minimum the physics requires. A low value (e.g. $2/kWh)
+gives the strict "never set a new peak" policy (an ablation).
     s.t.  each car: delivered + unserved = remaining need;  0 <= kW <= port cap while plugged in
           EV kW at k <= max(0, ceiling - building P_hi forecast at k) + raise        (max demand)
           same for 4-9 pm weekdays against the peak-period ceiling                  (peak demand)
@@ -33,11 +36,17 @@ from ..tariff import TariffSpec, interval_labels
 from .baselines import LeastLaxityFirst
 
 
+def drivers_first_penalty(spec: TariffSpec, margin: float = 1.5) -> float:
+    """$/kWh for undelivered energy that outweighs any demand charge delivering it could cause."""
+    worst = max(sum(d.usd_per_kw for d in season.demand) for season in spec.seasons)
+    return margin * worst / STEP_H
+
+
 class HeadroomMPC:
     name = "headroom"
 
     def __init__(self, forecaster, spec: TariffSpec, history: pd.Series, q_low: float = 0.1,
-                 q_high: float = 0.99, unserved_usd_per_kwh: float = 25.0, horizon: int = 96,
+                 q_high: float = 0.99, unserved_usd_per_kwh: float | None = None, horizon: int = 96,
                  oracle_floors: bool = False):
         self.forecaster = forecaster
         self.history = history
@@ -45,7 +54,7 @@ class HeadroomMPC:
         self.spec = spec
         self.q_low = forecaster.quantile_levels.index(q_low)
         self.q_high = forecaster.quantile_levels.index(q_high)
-        self.unserved = unserved_usd_per_kwh
+        self.unserved = unserved_usd_per_kwh if unserved_usd_per_kwh is not None else drivers_first_penalty(spec)
         self.horizon = horizon
         self._scenario_id = None
         self.failures = 0

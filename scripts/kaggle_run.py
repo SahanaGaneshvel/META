@@ -24,7 +24,8 @@ DATASET, KERNEL = "headroom-code", "headroom-glimmer"
 
 
 def kaggle(*args: str, check: bool = True) -> str:
-    out = subprocess.run([KAGGLE, *args], capture_output=True, text=True, cwd=ROOT)
+    out = subprocess.run([KAGGLE, *args], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         cwd=ROOT, env=dict(os.environ, PYTHONIOENCODING="utf-8"))
     if check and out.returncode != 0:
         raise SystemExit(f"kaggle {' '.join(args)} failed:\n{out.stdout}\n{out.stderr}")
     return out.stdout + out.stderr

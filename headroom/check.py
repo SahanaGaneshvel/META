@@ -169,7 +169,7 @@ def _passes(rows: list[dict]) -> bool:
 
 
 def hosting_capacity(site_df, sessions, spec, service_kw, months, controller, seed=1,
-                     start=2, max_ports=160, step=1.5, log=None) -> tuple[int, list[dict]]:
+                     start=2, max_ports=300, step=1.5, log=None) -> tuple[int, list[dict]]:
     """Exact largest fleet that passes in every month: grow geometrically until a size fails, then
     bisect between the last pass and the first fail. Returns it and every simulated month."""
     runs: list[dict] = []

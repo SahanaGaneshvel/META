@@ -57,7 +57,7 @@ def run_one(job: tuple) -> dict:
     else:
         forecaster = OracleForecaster() if name.endswith("oracle") else _W["profile"]
         controller = HeadroomMPC(forecaster, spec, history,
-                                 unserved_usd_per_kwh=2.0 if "strict" in name else 25.0,
+                                 unserved_usd_per_kwh=2.0 if "strict" in name else None,
                                  oracle_floors="full_oracle" in name)
         controller.name = name
     row = evaluate(simulate(scenario, controller), scenario, spec)
