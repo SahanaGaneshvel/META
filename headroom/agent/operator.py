@@ -91,12 +91,17 @@ class Turn:
     unsupported: list[str] = field(default_factory=list)  # numbers no tool result backs up
 
 
+NUDGE = ("If a tool can answer this, call it now and answer only from its result (earlier numbers may be out of "
+         "date). If no tool applies, give your answer.")
+
+
 def run(context: SiteContext, request: str, history: list[dict] | None = None, client: ModelClient | None = None,
         max_rounds: int = 6, reasoning_effort: str = "low") -> Turn:
     client = client or ModelClient("spark")
     messages = list(history or [{"role": "system", "content": SYSTEM}])
     messages.append({"role": "user", "content": request})
     steps: list[Step] = []
+    nudged = False
     for _ in range(max_rounds):
         response = client.chat(messages, tools=tool_schemas(), tool_choice="auto", reasoning_effort=reasoning_effort)
         message = response["choices"][0]["message"]
@@ -107,6 +112,12 @@ def run(context: SiteContext, request: str, history: list[dict] | None = None, c
         if calls:
             assistant["tool_calls"] = calls
         messages.append(assistant)
+        if not calls and not nudged and not any(s.kind == "tool" for s in steps):
+            # some models announce a check and stop; numbers from earlier turns may be stale, so ask once
+            # for this turn's tool call before accepting a reply
+            nudged = True
+            messages.append({"role": "user", "content": NUDGE})
+            continue
         if not calls:
             answer = message.get("content") or ""
             results = [st.result for st in steps if st.kind == "tool" and st.ok]

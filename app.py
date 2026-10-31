@@ -206,7 +206,9 @@ def replay() -> None:
     m[1].metric("Cars plugged in", int(((site.scenario.arrive <= t_now) & (site.scenario.depart > t_now)).sum()))
     m[2].metric("Demand charges added by charging, this month", f"${bills['headroom']:,.0f}",
                 f"-${bills['llf'] - bills['headroom']:,.0f} vs standard smart charging", delta_color="inverse")
-    m[3].metric("Grid-limit violations", "0")
+    site_kw = site.scenario.building_kw[:t_now] + site.results["headroom"].ev_kw[:t_now]
+    m[3].metric("Grid-limit violations", int((site_kw > site.scenario.service_kw + 1e-6).sum()),
+                help="15-minute intervals this month so far with the site above its grid connection")
     show_static = st.toggle("Also show a fixed charging cap", value=False)
     st.plotly_chart(replay_chart(site, day_frame(site, day), now, t_now, show_static), width="stretch")
     with st.expander("How to read this chart"):
@@ -366,6 +368,11 @@ def check_building() -> None:
             st.markdown(f"At {answer['chargers_standard_smart_charging']} chargers, charging adds "
                         f"**${usd['headroom']:,}/month** in demand charges with Headroom, versus ${usd['llf']:,} "
                         f"with standard smart charging.")
+        if "buildings" in h:
+            st.markdown(f"For comparison: across the {h['buildings']} buildings tested, the median gain is "
+                        f"**{h['building_gain']:+.0%}**."
+                        + (" This sample (a real office meter from BDG2) is one of the largest gains in that study."
+                           if use_sample and upload is None else ""))
         st.caption(f"Screened {answer.get('your_months', ', '.join(answer['months']))} · building peak "
                    f"{answer['building_peak_kw']:,} kW · connection {answer['service_kw']:,.0f} kW"
                    f"{' (estimated: peak ÷ 0.8)' if answer['service_assumed_from_peak'] else ''} · drivers must get "
@@ -540,5 +547,5 @@ with st.sidebar:
                    "own GPU. Charging never depends on either model.")
     st.segmented_control("Model calls", ["Replay", "Live"], default="Replay", key="calls", required=True,
                          help="Replay uses recorded Muse Spark responses, so the demo runs without a key")
-    st.caption("Meta models: Muse Spark 1.3 · Muse Glimmer")
+    st.caption("Meta models: Muse Spark 1.3 · Muse Voice Transcribe · Muse Glimmer")
 page.run()

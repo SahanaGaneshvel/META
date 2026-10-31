@@ -65,6 +65,19 @@ def test_loop_recovers_from_a_bad_call():
     assert "0.4%" in turn.answer
 
 
+def test_an_announced_check_is_followed_through():
+    """A model that says it will check and stops gets one nudge, so the turn answers from a fresh tool call."""
+    site = FakeSite()
+    model = ScriptedModel([
+        {"content": "I will check the expansion."},
+        {"content": "", "tool_calls": [_call("simulate_expansion", {"extra_ports": 12})]},
+        {"content": "Adding 12 chargers carries a 0.4% risk of a new peak."},
+    ])
+    turn = run(site, "Can I add 12 chargers?", client=model)
+    assert site.calls == [12] and "0.4%" in turn.answer
+    assert model.seen[1]["role"] == "user" and "call it now" in model.seen[1]["content"]
+
+
 def test_spend_guard_books_the_worst_case_first(tmp_path, monkeypatch):
     import pytest
 
@@ -121,7 +134,7 @@ def test_failover_to_glimmer_when_the_link_is_down(tmp_path):
             raise mc.LinkDown("cloud unreachable")
 
     fc = mc.FailoverClient(recordings=tmp_path)
-    fc.backup = ScriptedModel([{"content": "Glimmer here: site at 812 kW."}])
+    fc.backup = ScriptedModel([{"content": "Checking."}, {"content": "Glimmer here: site at 812 kW."}])
     fc.backup.config = mc.RoleConfig("glimmer", "", "", "muse-glimmer")
     fc.primary = Down()
     turn = run(FakeSite(), "Status?", client=fc)
