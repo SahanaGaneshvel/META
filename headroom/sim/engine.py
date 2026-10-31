@@ -32,15 +32,34 @@ class Controller(Protocol):
     def decide(self, view: StepView, scenario: Scenario) -> np.ndarray: ...
 
 
+HOLD = 12  # intervals (3 hours): the safety layer budgets against the building's highest recent reading;
+# 3 hours rides through the 1-2 hour meter dropouts seen in hourly data (BDG2) without hiding real rises
+
+
+def recent_high(building_kw: np.ndarray, hold: int = HOLD) -> np.ndarray:
+    """For each interval t >= 1, the highest building reading in the `hold` intervals before t."""
+    x = np.asarray(building_kw, dtype=float)
+    windows = np.lib.stride_tricks.sliding_window_view(np.concatenate([np.full(hold - 1, -np.inf), x[:-1]]), hold)
+    return windows.max(axis=1)
+
+
+def rise_above_recent_high(building_kw: np.ndarray, hold: int = HOLD) -> np.ndarray:
+    """How far the building's load at t exceeds its highest reading in the `hold` intervals before (t >= 1)."""
+    x = np.asarray(building_kw, dtype=float)
+    return x[1:] - recent_high(x, hold)
+
+
 @dataclass
 class SafetyLayer:
     """Deterministic last line of defence; nothing upstream can override it.
 
-    Guarantee: if the building's load rises by at most `ramp_kw` from one interval to the next, the
-    site never exceeds `service_kw`. The default covers the largest measured 15-minute rise in the
-    training year (51.4 kW) with margin (the test year's largest is 53.4 kW); stress tests with
-    added intra-hour noise must widen it. Whether the assumption held is reported for every run
-    (`metrics.ramp_breaches`).
+    It budgets against the building's highest reading in the past 3 hours, so a brief dip (or a meter
+    dropout) never hands the room to the chargers. Guarantee: if the building's load never exceeds
+    its highest reading of the past 3 hours by more than `ramp_kw`, the site never exceeds `service_kw`.
+    The default covers the largest such rise in the main building's training year (51.4 kW) with
+    margin (the test year's largest is 53.4 kW); stress tests with added intra-hour noise must widen
+    it, and other buildings get their own (headroom.check). Whether the assumption held is reported
+    for every run (`metrics.ramp_breaches`).
     """
     service_kw: float
     ramp_kw: float = 60.0
@@ -52,7 +71,7 @@ class SafetyLayer:
             p = np.zeros(view.active.shape)
         upper = np.minimum(view.max_kw, view.remaining_kwh / STEP_H)
         p = np.clip(p, 0.0, upper)
-        last = view.building_measured[-1] if view.t > 0 else scenario.building_kw[0]
+        last = view.building_measured[-HOLD:].max() if view.t > 0 else scenario.building_kw[0]
         site_cap = self.service_kw
         if self.extra_cap_kw is not None:
             site_cap = min(site_cap, self.extra_cap_kw[view.t])

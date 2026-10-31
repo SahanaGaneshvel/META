@@ -9,7 +9,10 @@ The screening simulates whole months with each controller and finds each one's h
 largest fleet whose drivers get >= 99% of their energy in every simulated month with zero service-limit
 violations. Standard smart charging (least-laxity-first) runs under a fixed cap of service minus the
 building's highest load in the previous 12 months, the usual way a site sizes it; Headroom runs on the
-hour-of-day profile forecast fitted on data before the window.
+hour-of-day profile forecast fitted on data before the window. Both run under the same safety layer,
+whose allowance for the building's load rising above its past 3 hours' high is sized from that
+building's own previous 12 months (largest rise + 20%); test-month rises beyond it are reported as
+ramp breaches.
 
 Timestamps are taken as local wall-clock and placed on the Palo Alto clock, so the building's 9 am
 meets the drivers' 9 am (all buildings are billed on the same tariff, so results compare like-for-like).
@@ -30,13 +33,21 @@ from .control.headroom_mpc import HeadroomMPC
 from .data.building import _on_hourly_grid, energy_preserving_quarter_hours
 from .data.timeutil import wallclock_hourly_to_utc
 from .forecast.profile import ProfileForecaster
-from .metrics import evaluate
-from .sim.engine import simulate
+from .metrics import evaluate, ramp_breaches
+from .sim.engine import SafetyLayer, rise_above_recent_high, simulate
 from .sim.scenario import make_scenario
 from .tariff import TariffSpec
 
 CONTINUOUS_LOAD_SHARE = 0.8  # NEC: continuous load within 80% of the service rating
 SERVED_TARGET = 0.99
+RAMP_MARGIN = 1.2  # safety layer allowance: the largest 15-minute rise of the past year, +20%
+
+
+def ramp_allowance_kw(building_kw: pd.Series) -> float:
+    """The safety layer's allowance for the building's load rising above its recent high, sized
+    from this building's own history (each building ramps differently), rounded up to 5 kW."""
+    rise = float(np.nanmax(rise_above_recent_high(building_kw.to_numpy()))) if len(building_kw) > 1 else 0.0
+    return float(5 * np.ceil(max(rise, 1.0) * RAMP_MARGIN / 5))
 
 
 # ---------------------------------------------------------------- meter data
@@ -159,8 +170,10 @@ def run_size(site_df: pd.DataFrame, sessions: pd.DataFrame, spec: TariffSpec, se
         fit_start = str((start - pd.DateOffset(months=12)).date())
         forecaster = ProfileForecaster.fit(history, fit_start, first)
         ctrl = HeadroomMPC(forecaster, spec, history)
-    row = evaluate(simulate(scenario, ctrl), scenario, spec)
-    row.update(controller=controller, month=month, seed=seed, n_ports=n_ports)
+    ramp_kw = ramp_allowance_kw(past)
+    row = evaluate(simulate(scenario, ctrl, SafetyLayer(service_kw, ramp_kw=ramp_kw)), scenario, spec)
+    row.update(controller=controller, month=month, seed=seed, n_ports=n_ports, ramp_allowance_kw=ramp_kw,
+               ramp_breaches=ramp_breaches(scenario, ramp_kw))
     return row
 
 
@@ -193,6 +206,15 @@ def hosting_capacity(site_df, sessions, spec, service_kw, months, controller, se
     return lo, runs
 
 
+def violations_at(runs: pd.DataFrame, llf_n: int, head_n: int) -> int:
+    """Service-limit violations in the simulated months at the two capacities reported."""
+    if not len(runs):
+        return 0
+    reported = (((runs["controller"] == "llf") & (runs["n_ports"] == llf_n))
+                | ((runs["controller"] == "headroom") & (runs["n_ports"] == head_n)))
+    return int(runs.loc[reported, "service_violations"].sum())
+
+
 def check(site_df: pd.DataFrame, sessions: pd.DataFrame, spec: TariffSpec, months: list[str],
           service_kw: float | None = None, seed: int = 1, log=None,
           continuous_share: float = CONTINUOUS_LOAD_SHARE) -> dict:
@@ -214,7 +236,10 @@ def check(site_df: pd.DataFrame, sessions: pd.DataFrame, spec: TariffSpec, month
         "extra_chargers": int(head_n - llf_n),
         "extra_share": (head_n - llf_n) / llf_n if llf_n else None,
         "added_demand_usd_per_month_at_standard_capacity": {k: round(v) for k, v in same_fleet.items()},
-        "service_violations": int(runs["service_violations"].sum()),
+        "service_violations": int(runs["service_violations"].sum()),  # every size tried, rejected ones included
+        "violations_at_reported_sizes": violations_at(runs, llf_n, head_n),
+        "ramp_allowance_kw": float(runs["ramp_allowance_kw"].max()) if len(runs) else None,
+        "ramp_breaches": int(runs.groupby("month")["ramp_breaches"].first().sum()) if len(runs) else 0,
         "runs": runs,
     }
 

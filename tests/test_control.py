@@ -7,7 +7,7 @@ import pytest
 
 from headroom.config import PROCESSED
 from headroom.control.baselines import Uncontrolled, water_fill
-from headroom.sim.engine import SafetyLayer, StepView, simulate
+from headroom.sim.engine import HOLD, SafetyLayer, StepView, recent_high, simulate
 from headroom.sim.scenario import STEP_H, make_scenario
 from headroom.tariff import load_gold, monthly_bills
 from headroom.thermal import TransformerModel
@@ -81,8 +81,14 @@ def test_safety_layer_fuzz(data):
         assert kw.shape == active.shape and np.isfinite(kw).all()
         assert (kw >= 0).all() and (kw <= sc.max_kw[active] + 1e-9).all()
         assert (kw * STEP_H <= remaining + 1e-9).all()
-        worst_building = sc.building_kw[t - 1] + layer.ramp_kw
+        worst_building = sc.building_kw[max(0, t - HOLD):t].max() + layer.ramp_kw
         assert worst_building + kw.sum() <= sc.service_kw + 1e-6
+
+
+def test_recent_high_ignores_a_one_reading_dip():
+    load = np.array([500.0, 520.0, 140.0, 530.0, 510.0])
+    assert recent_high(load).tolist() == [500.0, 520.0, 520.0, 530.0]
+    assert recent_high(load)[2] == 520.0  # after the dip the layer still budgets against 520 kW
 
 
 def test_water_fill_is_fair_and_capped():

@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .sim.engine import Result
+from .sim.engine import Result, rise_above_recent_high
 from .sim.scenario import STEP_H, Scenario
 from .tariff import TariffSpec, monthly_bills
 
@@ -44,5 +44,6 @@ def evaluate(result: Result, scenario: Scenario, spec: TariffSpec) -> dict:
 
 
 def ramp_breaches(scenario: Scenario, ramp_kw: float) -> int:
-    """Intervals where the building rose more than the safety layer's assumed bound."""
-    return int((np.diff(scenario.building_kw) > ramp_kw).sum())
+    """Intervals where the building rose above its recent high (sim.engine.HOLD) by more than the
+    safety layer's assumed bound."""
+    return int((rise_above_recent_high(scenario.building_kw) > ramp_kw).sum())

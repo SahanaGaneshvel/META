@@ -17,3 +17,4 @@ data/spend.json
 data/forecasts_lgbm/*.npz
 kaggle_headroom.zip
 data/results/check_cache/
+data/results/portfolio_parts*/

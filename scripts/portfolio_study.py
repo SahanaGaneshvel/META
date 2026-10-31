@@ -26,8 +26,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from headroom.check import check, site_table  # noqa: E402
-from headroom.config import DATA, PROCESSED, RAW  # noqa: E402
+from headroom.check import check, site_table, violations_at  # noqa: E402
+from headroom.config import DATA, PROCESSED, RAW, SITE  # noqa: E402
 from headroom.tariff import load_gold  # noqa: E402
 
 N_BUILDINGS = int(os.environ.get("PORTFOLIO_N", "50"))
@@ -109,6 +109,10 @@ def summarise() -> None:
     s = pd.DataFrame([pd.read_json(p, typ="series") for p in sorted(PARTS.glob("*.json"))])
     for col in ("chargers_standard_smart_charging", "chargers_headroom", "extra_chargers", "service_violations"):
         s[col] = s[col].astype(int)
+    s["violations_at_reported_sizes"] = [
+        violations_at(runs[runs["building"] == r.building], r.chargers_standard_smart_charging, r.chargers_headroom)
+        for r in s.itertuples()]
+    s = s[s["building"] != SITE.building]  # our main site is reported separately: the claim is about other buildings
     s = s.merge(pd.read_csv(OUT / "portfolio_buildings.csv"), left_on="building", right_on="building_id")
     s.drop(columns="building_id").to_csv(OUT / f"portfolio_summary{TAG}.csv", index=False)
     std, head = s["chargers_standard_smart_charging"], s["chargers_headroom"]
@@ -117,7 +121,10 @@ def summarise() -> None:
     rng = np.random.default_rng(0)
     boot = np.median(rng.choice(gain, (10_000, len(gain))), axis=1)
     print(f"service = peak before the test months / {SHARE}; {len(s)} buildings, {s['site_id'].nunique()} sites, "
-          f"{len(runs)} simulated building-months; service-limit violations: {int(s['service_violations'].sum())}")
+          f"{len(runs)} simulated building-months; service-limit violations at the reported sizes: "
+          f"{int(s['violations_at_reported_sizes'].sum())} (in the whole search, rejected sizes included: "
+          f"{int(s['service_violations'].sum())}); test-month ramp breaches: {int(s['ramp_breaches'].sum())} "
+          f"in {int((s['ramp_breaches'] > 0).sum())} buildings")
     print(f"chargers (median): standard smart charging {std.median():.0f}, Headroom {head.median():.0f}; "
           f"total {std.sum()} -> {head.sum()} ({head.sum() / max(std.sum(), 1) - 1:+.0%})")
     print(f"per-building gain where standard > 0 (n={len(both)}): median {np.median(gain):+.0%} "

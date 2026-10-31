@@ -50,9 +50,9 @@ README results), so it is not used at runtime.
   `data/forecasts_lgbm/`; `scripts/final_benchmark.py` runs it as `headroom_lightgbm`.
 
 ## 3. Result of the comparison
-On the held-out benchmark (May–Oct 2017, 24 chargers, 18 month-scenarios) the two give the same result:
-$2,669.74 vs $2,669.74 per month in added demand charges, 99.8% of energy delivered, 0 violations
-(`data/results/final_summary.csv`, rows `headroom` and `headroom_lightgbm`).
+On the held-out benchmark (May–Oct 2017, 24 chargers, 18 month-scenarios) the two give practically the
+same result: $2,888.91 (profile) vs $2,889.62 (LightGBM) per month in added demand charges, 100% of
+energy delivered, 0 violations (`data/results/final_summary.csv`, rows `headroom` and `headroom_lightgbm`).
 
 Why: the forecasts are identical for the first 4 hours (the blend uses the profile there, chosen on
 validation) and differ beyond (mean absolute difference 13–16 kW at 4–24 h in June 2017). The planner

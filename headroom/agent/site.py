@@ -209,9 +209,9 @@ class ReplaySite:
             h = np.arange(horizons)
             inside = (t + h >= t0) & (t + h < t1)
             if inside.any():
-                floor = adjusted[t, inside, 1] * multiplier
-                for j in (1, 2, 3):  # median and upper quantiles; the low quantile (free-fill floor) stays
-                    adjusted[t, inside, j] = np.maximum(adjusted[t, inside, j], floor)
+                # scale the median and upper quantiles together so the band keeps its width; never lower
+                # them (the low quantile, the free-fill floor, stays)
+                adjusted[t, inside, 1:] *= max(multiplier, 1.0)
         before = self.results["headroom"]
         controller = HeadroomMPC(ArrayForecaster(adjusted), self.spec, self.site["building_kw"])
         after = simulate(self.scenario, controller)
@@ -291,7 +291,7 @@ class ReplaySite:
                 "median_extra_chargers_share": round(float(gain.median()), 3),
                 "share_of_buildings_where_headroom_fits_more": round(float((both["extra_chargers"] > 0).mean()), 3),
                 "chargers_total_standard_smart_charging": int(std.sum()), "chargers_total_headroom": int(head.sum()),
-                "service_limit_violations": int(p["service_violations"].sum()),
+                "service_limit_violations_at_these_charger_counts": int(p["violations_at_reported_sizes"].sum()),
                 "assumption": "service size not in the data: peak before the screened months / 0.8"}
 
     def comparison(self) -> pd.DataFrame:

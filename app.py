@@ -156,7 +156,7 @@ def overview() -> None:
                            f"{h['chargers_headroom']}", f"+{h['chargers_headroom'] - h['chargers_standard']} vs "
                            f"{h['chargers_standard']} with standard smart charging")
         cols[1].metric("Demand charges added by charging", f"${h['usd_headroom']:,.0f}/mo",
-                       f"−{h['saving']:.0%} vs standard smart charging", delta_color="inverse")
+                       f"-{h['saving']:.0%} vs standard smart charging", delta_color="inverse")
         cols[2].metric("Drivers' energy delivered", f"{h['served']:.1%}")
         cols[3].metric("Grid-limit violations", f"{h['violations']}", help="Guaranteed by a deterministic safety layer")
         if "buildings" in h:
@@ -205,7 +205,7 @@ def replay() -> None:
     m[0].metric("Building now", f"{site.scenario.building_kw[t_now - 1]:,.0f} kW")
     m[1].metric("Cars plugged in", int(((site.scenario.arrive <= t_now) & (site.scenario.depart > t_now)).sum()))
     m[2].metric("Demand charges added by charging, this month", f"${bills['headroom']:,.0f}",
-                f"−${bills['llf'] - bills['headroom']:,.0f} vs standard smart charging", delta_color="inverse")
+                f"-${bills['llf'] - bills['headroom']:,.0f} vs standard smart charging", delta_color="inverse")
     m[3].metric("Grid-limit violations", "0")
     show_static = st.toggle("Also show a fixed charging cap", value=False)
     st.plotly_chart(replay_chart(site, day_frame(site, day), now, t_now, show_static), width="stretch")
@@ -305,7 +305,7 @@ def check_building() -> None:
             a.metric("Median extra chargers, same connection", f"{h['building_gain']:+.0%}")
             b.metric("Buildings where Headroom fits more", f"{h['buildings_more']:.0%}")
             ps = pd.read_csv(RESULTS / "portfolio_summary.csv")
-            c.metric("Grid-limit violations", int(ps["service_violations"].sum()))
+            c.metric("Grid-limit violations at these sizes", int(ps["violations_at_reported_sizes"].sum()))
             with st.expander("See every building"):
                 fig = go.Figure(go.Scatter(
                     x=ps["chargers_standard_smart_charging"], y=ps["chargers_headroom"], mode="markers",
@@ -320,7 +320,9 @@ def check_building() -> None:
                 st.plotly_chart(fig, width="stretch")
                 st.caption("Each dot is one real metered building (BDG2), screened on Jul–Aug 2017. Above the dotted "
                            "line, Headroom fits more. Service size isn't in the data: estimated as the peak before "
-                           "those months ÷ 0.8 (the electrical-code continuous-load rule). Method: scripts/portfolio_study.py")
+                           "those months ÷ 0.8 (the electrical-code continuous-load rule). The safety layer's allowance "
+                           "for a sudden rise in each building's load comes from that building's own past year; a "
+                           "fleet size that breaks the limit in any month is rejected. Method: scripts/portfolio_study.py")
 
     st.markdown("##### Your building")
     sample = DATA / "samples" / "sample_building_green_button.csv"
@@ -358,7 +360,7 @@ def check_building() -> None:
         a, b, c = st.columns(3)
         a.metric("Chargers with standard smart charging", answer["chargers_standard_smart_charging"])
         b.metric("Chargers with Headroom", answer["chargers_headroom"], f"{answer['extra_chargers']:+d}")
-        c.metric("Grid-limit violations", answer["service_violations"])
+        c.metric("Grid-limit violations", answer.get("violations_at_reported_sizes", answer["service_violations"]))
         usd = answer.get("added_demand_usd_per_month_at_standard_capacity") or {}
         if "llf" in usd and "headroom" in usd:
             st.markdown(f"At {answer['chargers_standard_smart_charging']} chargers, charging adds "
@@ -367,7 +369,9 @@ def check_building() -> None:
         st.caption(f"Screened {answer.get('your_months', ', '.join(answer['months']))} · building peak "
                    f"{answer['building_peak_kw']:,} kW · connection {answer['service_kw']:,.0f} kW"
                    f"{' (estimated: peak ÷ 0.8)' if answer['service_assumed_from_peak'] else ''} · drivers must get "
-                   f"≥ 99% of their energy in every month · E-4 TOU tariff · real Palo Alto driver sessions")
+                   f"≥ 99% of their energy in every month · E-4 TOU tariff · real Palo Alto driver sessions"
+                   + (f" · safety allowance for a sudden load rise: {answer['ramp_allowance_kw']:,.0f} kW, from the "
+                      f"building's past year" if answer.get("ramp_allowance_kw") else ""))
 
 
 def verified() -> None:
