@@ -60,4 +60,3 @@ re-plans every 15 minutes and what it commits is driven by the next few hours, s
 The value is in seeing the building at all, not in the forecasting model's complexity, so Headroom
 ships the profile: simpler, faster, and no trained model at runtime.
 
-Earlier full results with LightGBM as the main forecaster are kept in `data/results/*_lightgbm_v1.csv`.

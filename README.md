@@ -214,7 +214,7 @@ Long studies can also run on Kaggle's free machines: `python scripts/kaggle_run.
 - `headroom/agent/`: operator agent, tools, number check, tariff reader, bay check, the replay site
 - `headroom/meta/client.py`: Meta model client with record/replay, failover and the spend guard
 - `scripts/`: benchmark, capacity and multi-building studies, forecasts, demo recording, data download
-- `docs/`: [FORECASTING](docs/FORECASTING.md), [DATA_SPEC](docs/DATA_SPEC.md), [VIDEO](docs/VIDEO.md), [GLIMMER_KAGGLE](docs/GLIMMER_KAGGLE.md)
+- `docs/`: [FORECASTING](docs/FORECASTING.md), [DATA_SPEC](docs/DATA_SPEC.md), [DATA](docs/DATA.md), [GLIMMER_KAGGLE](docs/GLIMMER_KAGGLE.md)
 
 ## License
 Code: [MIT](LICENSE). Data, under their publishers' terms:

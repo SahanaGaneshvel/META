@@ -23,7 +23,7 @@ from headroom.agent.site import TARIFF_DOCS, ReplaySite  # noqa: E402
 from headroom.config import DATA  # noqa: E402
 from headroom.meta.client import ModelClient, spent_usd  # noqa: E402
 
-# the operator moments in docs/VIDEO.md, in order; RECORD_N=5 records only the first five
+# the recorded conversation, in order; RECORD_N=5 records only the first five
 REQUESTS = DEMO_REQUESTS[: int(os.environ.get("RECORD_N", len(DEMO_REQUESTS)))]
 
 

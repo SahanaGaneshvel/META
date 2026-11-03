@@ -19,3 +19,30 @@ kaggle_headroom.zip
 data/results/check_cache/
 data/results/portfolio_parts*/
 /video/
+
+# working notes and video production: kept locally, not part of the project
+docs/VIDEO.md
+docs/SUBMISSION.md
+docs/FINAL_PLAN.md
+docs/PLAN.md
+docs/STRATEGY.md
+docs/PROJECT_CONTEXT.md
+docs/SETUP.md
+scripts/video/
+docs/cards/hero_1080.png
+
+# raw downloads (scripts/fetch_data.py), source footage, stale or intermediate outputs, video assets
+data/raw/paloalto_ev_sessions.csv
+data/raw/bdg2/
+data/video/src/
+data/video/lot_wide*
+data/docs/e-4-effective-2025-07-01.pdf
+data/results/*_v1.csv
+data/results/dev_*.csv
+data/results/capacity_*_dev*.csv
+data/processed/building_15min.parquet
+data/processed/ev_15min.parquet
+scripts/baselines_check.py
+scripts/package_kaggle.py
+docs/cards/*
+!docs/cards/banner.png
