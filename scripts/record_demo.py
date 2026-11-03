@@ -19,8 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from headroom.agent.bays import decide, load_bays, observe, occupancy_accuracy  # noqa: E402
 from headroom.agent.operator import DEMO_REQUESTS, SYSTEM, run  # noqa: E402
-from headroom.agent.site import ReplaySite  # noqa: E402
-from headroom.agent.tools import ReadTariff  # noqa: E402
+from headroom.agent.site import TARIFF_DOCS, ReplaySite  # noqa: E402
 from headroom.config import DATA  # noqa: E402
 from headroom.meta.client import ModelClient, spent_usd  # noqa: E402
 
@@ -42,9 +41,9 @@ def main(role: str) -> None:
     site = ReplaySite(month="2017-06", n_ports=24)
 
     if role == "spark":
-        for doc in ("cpau-e-4-tou-2026", "cpau-e-7-tou-2026"):
+        for doc in TARIFF_DOCS:
             def read(doc=doc):
-                out = site.read_tariff(ReadTariff(document=doc))
+                out = site.read_tariff_document(doc)
                 print(json.dumps(out.get("verification"), indent=1, default=str))
             step(f"tariff {doc}", read)
 

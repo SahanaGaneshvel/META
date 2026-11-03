@@ -48,7 +48,12 @@ Headroom Check on 49 metered buildings from BDG2 at 7 US sites (22 education, 8 
 | Chargers in total, standard smart charging → Headroom | 2,225 → 3,010 (+35%) |
 | Grid-limit violations at the reported charger counts | **0** |
 
-- Gains vary widely by building: no change in 10 of 44, +50% or more in 14, and more than double in 6 (e.g. 22 → 76 chargers).
+- **Where the gain comes from.** A fixed cap has to keep room for the building's rarest peak all year; Headroom only holds that room back when the peak is coming. So the gain is largest where the peak is brief:
+  - In the third of buildings that spend at most 20 hours a year within 10% of their peak, the median gain is **+82%**.
+  - In the other two thirds it's about +10%.
+  - This is exploratory: 6 building traits were tested, and this one has ρ = −0.34, p = 0.03.
+- **Gains vary widely.** No change in 10 of 44 buildings, +50% or more in 14, more than double in 6 (e.g. 22 → 76 chargers).
+- **Our main site isn't an outlier.** Its +33% is better than 61% of these 44 buildings.
 - In 5 small or very spiky buildings neither controller can guarantee room for even 2 chargers.
 - Honest caveats:
   - In 6 buildings the test months contained a load rise larger than any in the building's past year (16 intervals in all). Fleet sizes where this caused a violation were rejected (6 simulated months).

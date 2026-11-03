@@ -26,6 +26,8 @@ st.set_page_config(page_title="Headroom", page_icon="⚡", layout="wide")
 RESULTS = DATA / "results"
 NAMES = {"headroom": "Headroom", "llf": "Standard smart charging", "static_cap": "Static cap"}
 COLORS = {"headroom": "#15803d", "llf": "#d97706", "static_cap": "#9ca3af", "building": "#2563eb"}
+TARIFF_NAMES = {"cpau-e-4-tou-2026": "Palo Alto E-4 TOU", "cpau-e-7-tou-2026": "Palo Alto E-7 TOU",
+                "pge-b-19-2026": "PG&E B-19"}
 DAYS = {"2017-06-21": "21 June 2017 · heat-wave alert", "2017-06-20": "20 June 2017 · heat-wave alert",
         "2017-06-14": "14 June 2017 · ordinary weekday"}
 SPIKE_KW = 50
@@ -320,6 +322,10 @@ def check_building() -> None:
                                   plot_bgcolor="white", xaxis_title="Chargers: standard smart charging",
                                   yaxis_title="Chargers: Headroom")
                 st.plotly_chart(fig, width="stretch")
+                st.markdown("**Where the gain comes from:** a fixed cap keeps room for the building's rarest peak "
+                            "all year; Headroom only holds it back when the peak is coming. Buildings whose peak is "
+                            "brief (at most 20 hours a year within 10% of it) gained a median **+82%**; the rest "
+                            "about +10%.")
                 st.caption("Each dot is one real metered building (BDG2), screened on Jul–Aug 2017. Above the dotted "
                            "line, Headroom fits more. Service size isn't in the data: estimated as the peak before "
                            "those months ÷ 0.8 (the electrical-code continuous-load rule). The safety layer's allowance "
@@ -383,7 +389,6 @@ def check_building() -> None:
 
 def verified() -> None:
     from headroom.agent.tariff_reader import bill_check, field_accuracy
-    from headroom.agent.tools import ReadTariff
 
     st.title("How the AI is checked")
     st.markdown("Muse Spark does the reading and the talking; nothing it produces is used until a check passes.")
@@ -393,12 +398,12 @@ def verified() -> None:
         st.markdown("##### Reading the utility's tariff")
         st.caption("Muse Spark turns the tariff document into structured rates. They're accepted only if they "
                    "reproduce the bill for every month of real metered load.")
-        doc = st.segmented_control("Tariff", ["cpau-e-4-tou-2026", "cpau-e-7-tou-2026"], default="cpau-e-4-tou-2026",
-                                   format_func=lambda d: "Palo Alto " + d.split("-")[1].upper() + "-" + d.split("-")[2] + " TOU")
+        doc = st.segmented_control("Tariff", list(TARIFF_NAMES), default="cpau-e-4-tou-2026", required=True,
+                                   format_func=TARIFF_NAMES.get)
         if st.button("Read and verify", type="primary"):
             try:
                 with st.spinner("Muse Spark is reading the tariff…"):
-                    out = site.read_tariff(ReadTariff(document=doc))
+                    out = site.read_tariff_document(doc)
                 v = out.get("verification", {})
                 a, b, c = st.columns(3)
                 a.metric("Fields read correctly", v.get("fields_correct"))
@@ -409,11 +414,11 @@ def verified() -> None:
             except (RecordingMissing, RuntimeError) as exc:
                 st.warning(str(exc))
         with st.expander("What happens when the model misreads one number"):
-            gold = load_gold(doc.replace("cpau-", "").replace("-2026", "_2026"))
+            gold = load_gold("e-4-tou_2026")
             bad = gold.model_copy(deep=True)
             bad.seasons[0].demand[0].usd_per_kw = 10.26  # only the commodity column: a classic misread
             acc, bills = field_accuracy(bad, gold), bill_check(bad, gold, site.site["building_kw"])
-            st.markdown(f"Reading only one column of the summer peak demand charge ($10.26 instead of "
+            st.markdown(f"Palo Alto E-4, reading only one column of the summer peak demand charge ($10.26 instead of "
                         f"${gold.seasons[0].demand[0].usd_per_kw}): **{acc['correct']} of {acc['fields']} fields right, "
                         f"but the bill is off by {bills['worst_error']:.1%} in {bills['worst_month']}, so it's rejected.**")
 

@@ -78,6 +78,18 @@ def test_an_announced_check_is_followed_through():
     assert model.seen[1]["role"] == "user" and "call it now" in model.seen[1]["content"]
 
 
+def test_field_names_in_an_answer_are_rewritten_once():
+    site = FakeSite()
+    model = ScriptedModel([
+        {"content": "", "tool_calls": [_call("simulate_expansion", {"extra_ports": 12})]},
+        {"content": "new_peak_risk 0.004 for extra_ports 12."},
+        {"content": "Adding 12 chargers carries a 0.4% risk of a new peak."},
+    ])
+    turn = run(site, "Can I add 12 chargers?", client=model)
+    assert turn.answer == "Adding 12 chargers carries a 0.4% risk of a new peak." and not turn.unsupported
+    assert "plain sentences" in model.seen[2]["content"]
+
+
 def test_spend_guard_books_the_worst_case_first(tmp_path, monkeypatch):
     import pytest
 

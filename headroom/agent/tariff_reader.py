@@ -25,6 +25,9 @@ Return the tariff as JSON matching the schema exactly. Rules:
 - A demand charge that applies at all hours has an empty windows list.
 - days: "weekdays" means Monday-Friday; set holidays_off_peak true if holidays are treated like weekends.
 - demand_interval_minutes is the interval over which billed demand is averaged.
+- A charge quoted per day becomes per month as rate x 365 / 12.
+- If a period applies only in some months of a season, split the season so every window applies to all
+  of its months.
 Copy numbers exactly as printed; do not round."""
 
 
@@ -49,32 +52,34 @@ def extract(path: Path, client: ModelClient | None = None, reasoning_effort: str
     return TariffSpec.model_validate_json(content), response
 
 
-_FILLER = {"demand", "period", "charge", "season", "rate"}
+def _months(months: list[int]) -> str:
+    return "months " + ",".join(str(m) for m in sorted(months))
 
 
-def _norm(name: str) -> str:
-    """Compare names by meaning, not wording: "Summer Period" = "summer", "Peak" = "peak demand"."""
-    words = name.lower().replace("-", " ").replace("_", " ").split()
-    return "-".join(w for w in words if w not in _FILLER) or name.lower()
+def _hours(windows) -> str:
+    """A charge is identified by when it applies, not by what the utility calls it."""
+    if not windows:
+        return "all other hours"
+    return " + ".join(f"{w.days} {w.start_hour:g}-{w.end_hour:g}h" for w in sorted(
+        windows, key=lambda w: (w.days, w.start_hour, w.end_hour)))
 
 
 def _flatten(spec: TariffSpec) -> dict[str, object]:
+    """Fields compared by meaning: a season is its months and a rate is the hours it applies to, so
+    "Maximum Peak Demand Summer" and "peak demand" match when they cover the same hours."""
     out: dict[str, object] = {
         "demand_interval_minutes": spec.demand_interval_minutes,
         "holidays_off_peak": spec.holidays_off_peak,
         "customer_charge_usd_per_month": round(spec.customer_charge_usd_per_month, 5),
     }
     for season in spec.seasons:
-        key = _norm(season.name)
-        out[f"{key}.months"] = tuple(sorted(season.months))
-        for rate in season.energy:
-            name = _norm(rate.period)
-            out[f"{key}.energy.{name}.rate"] = round(rate.usd_per_kwh, 5)
-            out[f"{key}.energy.{name}.windows"] = tuple(sorted((w.days, w.start_hour, w.end_hour) for w in rate.windows))
+        key = _months(season.months)
+        out[f"{key}: season"] = True
+        for rate in season.energy:  # a rate at the wrong hours has no match, so it counts as wrong
+            out[f"{key}: energy at {_hours(rate.windows)}: $/kWh"] = round(rate.usd_per_kwh, 5)
         for charge in season.demand:
-            name = _norm(charge.name)
-            out[f"{key}.demand.{name}.rate"] = round(charge.usd_per_kw, 5)
-            out[f"{key}.demand.{name}.windows"] = tuple(sorted((w.days, w.start_hour, w.end_hour) for w in charge.windows))
+            hours = _hours(charge.windows).replace("all other hours", "all hours")
+            out[f"{key}: demand at {hours}: $/kW"] = round(charge.usd_per_kw, 5)
     return out
 
 

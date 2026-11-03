@@ -41,13 +41,15 @@ SEEDS = [int(x) for x in os.environ.get("BENCH_SEEDS", "1,2,3").split(",")]
 CONTROLLERS = os.environ.get("BENCH_CONTROLLERS", "static_cap,llf,adacharge_mpc,headroom,headroom_oracle,"
                              "headroom_strict,headroom_lightgbm,headroom_stress,llf_stress").split(",")
 
+TARIFF = os.environ.get("TARIFF", "e-4-tou_2026")  # another gold tariff: results get its name as a suffix
+SUFFIX = "" if TARIFF == "e-4-tou_2026" else f"_{TARIFF}"
 _W: dict = {}
 
 
 def _load() -> None:
     _W["site"] = pd.read_parquet(PROCESSED / "site_15min.parquet")
     _W["sessions"] = pd.read_parquet(PROCESSED / "sessions.parquet")
-    _W["spec"] = load_gold("e-4-tou_2026")
+    _W["spec"] = load_gold(TARIFF)
 
 
 def run_one(job: tuple) -> dict:
@@ -90,12 +92,12 @@ def main() -> None:
     with ProcessPoolExecutor(max_workers=int(os.environ.get("WORKERS", "4")), initializer=_load) as pool:
         runs = pd.DataFrame(list(pool.map(run_one, jobs)))
     out = DATA / "results"
-    runs.to_csv(out / "final_runs.csv", index=False)
+    runs.to_csv(out / f"final_runs{SUFFIX}.csv", index=False)
     cols = ["energy_served", "cars_short_over_1kwh", "added_demand_usd", "ev_energy_usd", "peak_site_kw",
             "service_violations", "safety_interventions", "ramp_breaches", "transformer_loss_of_life_h", "seconds"]
     summary = runs.groupby("controller")[cols].mean()
     summary["months"] = runs.groupby("controller").size()
-    summary.to_csv(out / "final_summary.csv")
+    summary.to_csv(out / f"final_summary{SUFFIX}.csv")
     print(summary.round(3).to_string())
 
 

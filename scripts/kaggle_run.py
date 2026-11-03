@@ -2,6 +2,7 @@
 
     python scripts/kaggle_run.py            # Muse Glimmer on a T4 x2: record the operator's answers
     RECORD_N=6 python scripts/kaggle_run.py # include the last question once the portfolio study is in
+    python scripts/kaggle_run.py study --attach   # wait for a run already pushed, then download
     python scripts/kaggle_run.py study      # a long study on Kaggle's CPUs (default: the connection-size
                                             # sensitivity, PORTFOLIO_SHARE=0.9 portfolio_study.py run)
 
@@ -47,12 +48,18 @@ JOBS = {  # kind: (kernel, script, accelerator, output archive, files to unpack)
 }
 
 
-def main(kind: str = "glimmer") -> None:
+def main(kind: str = "glimmer", attach: bool = False) -> None:
     kernel, script, accelerator, archive_name, prefix = JOBS[kind]
     user = username()
     print("Kaggle user:", user)
     work = Path(tempfile.mkdtemp())
+    if not attach:
+        push(user, kernel, script, accelerator, work)
+    wait(user, kernel)
+    fetch(user, kernel, archive_name, prefix, work)
 
+
+def push(user: str, kernel: str, script: str, accelerator: str | None, work: Path) -> None:
     # 1. the project, as a private dataset
     data_dir = work / "dataset"
     data_dir.mkdir()
@@ -80,15 +87,22 @@ def main(kind: str = "glimmer") -> None:
         "dataset_sources": [f"{user}/{DATASET}"], "competition_sources": [], "kernel_sources": []}))
     print(kaggle("kernels", "push", "-p", str(kdir), *(["--accelerator", accelerator] if accelerator else [])))
 
-    # 3. wait
+
+
+def wait(user: str, kernel: str) -> None:
+    """Poll until the kernel finishes. Only Kaggle's own status ends the wait: a dropped connection on this
+    side is retried (the kernel keeps running on Kaggle either way)."""
     started = time.time()
     while True:
         status = kaggle("kernels", "status", f"{user}/{kernel}", check=False)
-        print(f"[{(time.time() - started) / 60:4.1f} min] {status.strip()}", flush=True)
-        if any(s in status.lower() for s in ("complete", "error", "cancel")):
+        print(f"[{(time.time() - started) / 60:4.1f} min] {status.strip()[:200]}", flush=True)
+        state = status.split("KernelWorkerStatus.")[-1].lower() if "KernelWorkerStatus." in status else ""
+        if state.startswith(("complete", "error", "cancel")):
             break
         time.sleep(60)
 
+
+def fetch(user: str, kernel: str, archive_name: str, prefix: str, work: Path) -> None:
     # 4. download and unpack the results
     out = work / "output"
     print(kaggle("kernels", "output", f"{user}/{kernel}", "-p", str(out), check=False))
@@ -106,4 +120,5 @@ def main(kind: str = "glimmer") -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "glimmer")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    main(args[0] if args else "glimmer", attach="--attach" in sys.argv)

@@ -28,7 +28,8 @@ from .tools import (ExplainPlan, GridAlerts, GridEventAdjustment, ReadTariff, Se
 RESULTS = DATA / "results"
 DOCS = DATA / "docs"
 TARIFF_DOCS = {"cpau-e-4-tou-2026": ("e-4-tou_effective_2026-07-01.pdf", "e-4-tou_2026"),
-               "cpau-e-7-tou-2026": ("e-7-tou_effective_2026-07-01.pdf", "e-7-tou_2026")}
+               "cpau-e-7-tou-2026": ("e-7-tou_effective_2026-07-01.pdf", "e-7-tou_2026"),
+               "pge-b-19-2026": ("pge-b-19_effective_2026-03-01.pdf", "pge-b-19_2026")}
 LEVELS = (0.1, 0.5, 0.9, 0.99)
 
 
@@ -232,9 +233,13 @@ class ReplaySite:
                 "note": "the safety layer is unchanged; only the plan reacted"}
 
     def read_tariff(self, args: ReadTariff) -> dict:
+        return self.read_tariff_document(args.document)
+
+    def read_tariff_document(self, document: str) -> dict:
+        """Read any tariff in TARIFF_DOCS (the operator's tool offers the site's own utility's)."""
         from .tariff_reader import bill_check, extract, field_accuracy
 
-        pdf, gold_name = TARIFF_DOCS[args.document]
+        pdf, gold_name = TARIFF_DOCS[document]
         spec, _ = extract(DOCS / pdf)
         out = {"document": pdf, "extracted": spec.model_dump()}
         gold_path = DOCS / "gold" / f"{gold_name}.json"

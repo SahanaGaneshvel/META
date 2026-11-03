@@ -134,5 +134,35 @@ def summarise() -> None:
           f"standard fits none in {(std == 0).sum()}, Headroom fits none in {(head == 0).sum()}")
 
 
+def drivers() -> None:
+    """Which building traits go with a larger gain (exploratory: six traits, Spearman). Traits come from
+    the year before the screened months; writes portfolio_drivers.csv (per building) and prints the test."""
+    from scipy.stats import spearmanr
+
+    s = pd.read_csv(OUT / f"portfolio_summary{TAG}.csv")
+    s = s[s["chargers_standard_smart_charging"] > 0].copy()
+    s["gain"] = s["chargers_headroom"] / s["chargers_standard_smart_charging"] - 1
+    meters = pd.read_parquet(METERS)
+    rows = []
+    for name in s["building"]:
+        x = meters[name]
+        x = x[(x.index >= "2016-07-01") & (x.index < "2017-07-01")].dropna()
+        peak = x.max()
+        evening = x[x.index.month.isin([7, 8]) & (x.index.day_of_week < 5) & x.index.hour.isin(range(16, 21))]
+        rows.append({"building": name, "load_factor": x.mean() / peak,
+                     "daily_peak_to_mean": (x.resample("D").max() / x.resample("D").mean()).median(),
+                     "hours_within_10pct_of_peak": int((x > 0.9 * peak).sum()),
+                     "summer_weekday_evening_load_share": evening.mean() / peak,
+                     "low_load_share": x.quantile(0.05) / peak, "peak_kw": peak})
+    d = s[["building", "gain"]].merge(pd.DataFrame(rows), on="building")
+    d.to_csv(OUT / f"portfolio_drivers{TAG}.csv", index=False)
+    for col in d.columns[2:]:
+        rho, p = spearmanr(d[col], d["gain"])
+        print(f"{col:36s} rho {rho:+.2f}  p {p:.3f}")
+    d["third"] = pd.qcut(d["hours_within_10pct_of_peak"], 3, labels=["brief peak", "middle", "long peak"])
+    print(d.groupby("third", observed=True)["gain"].agg(["size", "median"]).round(3).to_string())
+
+
 if __name__ == "__main__":
-    {"select": select, "run": run, "summarise": summarise}[sys.argv[1] if len(sys.argv) > 1 else "run"]()
+    {"select": select, "run": run, "summarise": summarise, "drivers": drivers}[
+        sys.argv[1] if len(sys.argv) > 1 else "run"]()

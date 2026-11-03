@@ -37,13 +37,15 @@ PORTS = [int(x) for x in os.environ.get("CAPACITY_PORTS", "12,24,36,48,60,72").s
 SEEDS = [int(x) for x in os.environ.get("CAPACITY_SEEDS", "1,2,3").split(",")]
 CONTROLLERS = os.environ.get("CAPACITY_CONTROLLERS", "static_cap,llf,headroom").split(",")
 
+TARIFF = os.environ.get("TARIFF", "e-4-tou_2026")  # another gold tariff: results get its name as a suffix
+SUFFIX = "" if TARIFF == "e-4-tou_2026" else f"_{TARIFF}"
 _W: dict = {}
 
 
 def _load() -> None:
     _W["site"] = pd.read_parquet(PROCESSED / "site_15min.parquet")
     _W["sessions"] = pd.read_parquet(PROCESSED / "sessions.parquet")
-    _W["spec"] = load_gold("e-4-tou_2026")
+    _W["spec"] = load_gold(TARIFF)
 
 
 def month_bounds(month: str) -> tuple[str, str]:
@@ -71,9 +73,9 @@ def main(split: str) -> None:
         runs = pd.DataFrame(list(pool.map(run_one, jobs)))
     out = DATA / "results"
     out.mkdir(parents=True, exist_ok=True)
-    runs.to_csv(out / f"capacity_runs_{split}.csv", index=False)
+    runs.to_csv(out / f"capacity_runs_{split}{SUFFIX}.csv", index=False)
     summary = summarise(runs)
-    summary.to_csv(out / f"capacity_summary_{split}.csv", index=False)
+    summary.to_csv(out / f"capacity_summary_{split}{SUFFIX}.csv", index=False)
     print(summary.round(3).to_string(index=False))
     print("hosting capacity (chargers):", hosting_capacity(summary).to_dict())
 

@@ -93,6 +93,10 @@ class Turn:
 
 NUDGE = ("If a tool can answer this, call it now and answer only from its result (earlier numbers may be out of "
          "date). If no tool applies, give your answer.")
+PLAIN = ("Rewrite your last answer for the site owner in plain sentences: no field names (words joined by "
+         "underscores), money as $1,234, shares as percentages, times as 5:30 pm. Keep every number and say "
+         "nothing new.")
+FIELD_NAME = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")  # e.g. ev_kw_headroom; not DATA_SPEC
 
 
 def run(context: SiteContext, request: str, history: list[dict] | None = None, client: ModelClient | None = None,
@@ -101,7 +105,7 @@ def run(context: SiteContext, request: str, history: list[dict] | None = None, c
     messages = list(history or [{"role": "system", "content": SYSTEM}])
     messages.append({"role": "user", "content": request})
     steps: list[Step] = []
-    nudged = False
+    nudged = rewritten = False
     for _ in range(max_rounds):
         response = client.chat(messages, tools=tool_schemas(), tool_choice="auto", reasoning_effort=reasoning_effort)
         message = response["choices"][0]["message"]
@@ -117,6 +121,11 @@ def run(context: SiteContext, request: str, history: list[dict] | None = None, c
             # for this turn's tool call before accepting a reply
             nudged = True
             messages.append({"role": "user", "content": NUDGE})
+            continue
+        if not calls and not rewritten and FIELD_NAME.search(message.get("content") or ""):
+            # tool field names leaked into the answer (smaller models do this): ask once for plain words
+            rewritten = True
+            messages.append({"role": "user", "content": PLAIN})
             continue
         if not calls:
             answer = message.get("content") or ""

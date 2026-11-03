@@ -1,0 +1,53 @@
+{
+  "utility": "Pacific Gas and Electric Company",
+  "schedule": "B-19 (secondary voltage, mandatory)",
+  "effective": "2026-03-01",
+  "demand_interval_minutes": 15,
+  "holidays_off_peak": false,
+  "customer_charge_usd_per_month": 1783.27563,
+  "seasons": [
+    {
+      "name": "summer",
+      "months": [6, 7, 8, 9],
+      "energy": [
+        {"period": "peak", "usd_per_kwh": 0.18648, "windows": [{"days": "all", "start_hour": 16, "end_hour": 21}]},
+        {"period": "part-peak", "usd_per_kwh": 0.14775, "windows": [
+          {"days": "all", "start_hour": 14, "end_hour": 16},
+          {"days": "all", "start_hour": 21, "end_hour": 23}]},
+        {"period": "off-peak", "usd_per_kwh": 0.12037, "windows": []}
+      ],
+      "demand": [
+        {"name": "maximum peak demand", "usd_per_kw": 46.16, "windows": [{"days": "all", "start_hour": 16, "end_hour": 21}]},
+        {"name": "maximum part-peak demand", "usd_per_kw": 10.52, "windows": [
+          {"days": "all", "start_hour": 14, "end_hour": 16},
+          {"days": "all", "start_hour": 21, "end_hour": 23}]},
+        {"name": "maximum demand", "usd_per_kw": 37.37, "windows": []}
+      ]
+    },
+    {
+      "name": "winter",
+      "months": [10, 11, 12, 1, 2],
+      "energy": [
+        {"period": "peak", "usd_per_kwh": 0.16188, "windows": [{"days": "all", "start_hour": 16, "end_hour": 21}]},
+        {"period": "off-peak", "usd_per_kwh": 0.12026, "windows": []}
+      ],
+      "demand": [
+        {"name": "maximum peak demand", "usd_per_kw": 2.31, "windows": [{"days": "all", "start_hour": 16, "end_hour": 21}]},
+        {"name": "maximum demand", "usd_per_kw": 37.37, "windows": []}
+      ]
+    },
+    {
+      "name": "winter (March-May)",
+      "months": [3, 4, 5],
+      "energy": [
+        {"period": "peak", "usd_per_kwh": 0.16188, "windows": [{"days": "all", "start_hour": 16, "end_hour": 21}]},
+        {"period": "super off-peak", "usd_per_kwh": 0.06442, "windows": [{"days": "all", "start_hour": 9, "end_hour": 14}]},
+        {"period": "off-peak", "usd_per_kwh": 0.12026, "windows": []}
+      ],
+      "demand": [
+        {"name": "maximum peak demand", "usd_per_kw": 2.31, "windows": [{"days": "all", "start_hour": 16, "end_hour": 21}]},
+        {"name": "maximum demand", "usd_per_kw": 37.37, "windows": []}
+      ]
+    }
+  ]
+}
