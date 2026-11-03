@@ -10,8 +10,8 @@ Headroom charges the cars in the room the building leaves:
 
 1. **See the building.** A forecast of the building's load for the next 24 hours, as calibrated quantiles (an hour-of-day statistical profile; no trained model at runtime).
 2. **Plan the charging.** A linear program (HiGHS) re-solved every 15 minutes charges every car under the demand level the month has already paid for, and raises it only by the minimum the drivers' needs require.
-3. **Guarantee the limit.** A deterministic safety layer that nothing above it can override keeps the site under its connection limit (fuzz-tested on 10,000 random and adversarial plans).
-4. **Muse Spark runs the site.** It reads the utility's tariff, takes requests by text or voice, sizes a plan change for a grid alert from the building's own past alert days, spots blocked bays on camera, and answers expansion questions from simulation. It can act only through validated tools, and every number in its answers is checked against the tool results. If the internet drops, **Muse Glimmer** on the site's own GPU takes over; charging never depends on either model.
+3. **Guarantee the limit.** A deterministic safety layer that nothing above it can override keeps the site under its connection limit (fuzz-tested on 10,000 random and adversarial plans). Each decision reaches the chargers as an OCPP 1.6J power limit, the protocol commercial chargers speak.
+4. **Muse Spark runs the site.** It reads the utility's tariff (verified on Palo Alto's and PG&E's), takes requests by text or voice, sizes a plan change for a grid alert from the building's own past alert days, spots blocked bays on camera, and answers expansion questions from simulation. It can act only through validated tools, and every number in its answers is checked against the tool results. If the internet drops, **Muse Glimmer** on the site's own GPU takes over; charging never depends on either model.
 
 > The model proposes, the math decides, the safety layer guarantees.
 
@@ -64,6 +64,20 @@ Headroom Check on 49 metered buildings from BDG2 at 7 US sites (22 education, 8 
   - In 6 buildings the test months contained a load rise larger than any in the building's past year (16 intervals in all). Fleet sizes where this caused a violation were rejected (6 simulated months).
   - Our main site (+33%) is excluded from these figures.
   - Every building is paired with the same Palo Alto driver sessions, so the result doesn't depend on any one building–garage pairing.
+
+### Another utility's tariff: PG&E B-19
+The same site and the same held-out months, billed instead on PG&E's Schedule B-19 (secondary voltage, effective 1 March 2026). B-19 is the standard large-commercial tariff of a different utility, with different periods and charges: peak every day including weekends, and a part-peak demand charge. Muse Spark read the official schedule 21/21 fields right, with every bill reproduced exactly (the two Palo Alto tariffs: 15/15 each). Run with `TARIFF=pge-b-19_2026`:
+
+| 24 chargers, PG&E B-19 | Energy delivered | Demand charges added by charging ($/month) | Violations |
+|---|---|---|---|
+| Static cap / standard smart charging / adacharge MPC | 100% | 6,165 | 0 |
+| **Headroom** | **100%** | **5,030 (−18%)** | **0** |
+| *Ablation: perfect foresight* | *100%* | *4,828* | *0* |
+
+- Headroom captures **85%** of the saving a perfect-foresight controller gets (82% under E-4).
+- The saving is smaller than under E-4 for a clear reason. B-19 bills $37.37/kW on the month's peak at *any* hour, on top of the evening window, so there is less to gain by avoiding the evening alone.
+- The planner needed no change: its drivers-first priority derives itself from the tariff ($564/kWh under B-19).
+- **Hosting capacity is the same under B-19: 48 chargers with Headroom vs 36** with standard smart charging or a static cap, 0 violations. At 48, standard smart charging leaves drivers short in 3 of 18 month-scenarios (`capacity_summary_test_pge-b-19_2026.csv`).
 
 ### Driving real chargers: OCPP 1.6J
 Headroom's decisions leave the simulator as **OCPP 1.6J `SetChargingProfile` commands**, the open protocol commercial chargers use for power limits (`headroom/ocpp_bridge.py`).

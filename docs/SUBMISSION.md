@@ -15,6 +15,7 @@ Headroom forecasts the building's load, plans the charging in the room the build
 - 48 chargers instead of 36 (+33%) on the same 1,000 kW connection, every driver served, 0 limit violations.
 - 32% lower demand charges than standard smart charging and Caltech's open-source adacharge MPC ($2,889 vs $4,231/month at 24 chargers), 100% of energy delivered; 82% of the saving a perfect-foresight controller gets.
 - Across 49 real metered buildings at 7 US sites: more chargers in 77% of them (fewer in none), a median +15% (95% CI +10% to +45%), 0 limit violations. With a tighter connection the median gain rises to +31%; buildings with a brief peak gain the most (median +82%).
+- On a second utility's tariff (PG&E B-19, read by Muse Spark 21/21): the same 48 vs 36 chargers, 18% lower demand charges, 0 violations.
 - Decisions reach chargers as OCPP 1.6J commands: the heat-wave evening's plan sent to 24 simulated chargers, 480 of 480 accepted, 0 W from plan.
 
 ## How we used Meta's models
