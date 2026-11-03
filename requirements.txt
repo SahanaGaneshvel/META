@@ -18,4 +18,5 @@ scikit-learn==1.7.2
 cvxpy==1.9.3
 clarabel==0.11.1
 acnportal==0.3.3
+setuptools==79.0.1  # acnportal imports pkg_resources, which fresh environments no longer include
 adacharge @ git+https://github.com/caltech-netlab/adacharge.git@b7d5fddb25e842333fc2b404d32dd3477ca47297
