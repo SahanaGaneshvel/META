@@ -1,12 +1,43 @@
+![Headroom: more EV chargers on the grid connection you already have](docs/cards/banner.png)
+
 # Headroom
 
-**More EV chargers on the grid connection a site already has: no service upgrade, and a tested answer to "what will the next 12 chargers cost me?"**
+**An AI operator that fits more EV chargers on the grid connection a building already has: no grid upgrade, every driver charged, never over the limit.**
 
 Meta Global AI Developer Hackathon 2026 · Indie track · *Push the Frontier* (energy: controlling a physical system)
 
-At a mall, office or depot the chargers share one meter with the building, and US utilities bill the highest 15 minutes of each month. Under Palo Alto's E-4 TOU tariff, one 50 kW charging spike at 6 pm on a summer weekday adds **$2,572** to the bill, for about $3 of electricity. So owners stop adding chargers, or cap them and waste the capacity they already pay for. Upgrading the connection instead typically means a utility study, a new transformer and a long wait.
+**[Watch the 3-minute demo](VIDEO_LINK)** · **[Try the app](APP_LINK)** · [Run it yourself](#run-the-demo-no-key-no-account) · [All results](#results)
 
-Headroom charges the cars in the room the building leaves:
+## The problem
+Offices, malls, campuses and fleet depots all want more EV chargers, and the chargers plug into the same grid connection as the building.
+- **The bill.** US utilities bill a business for its highest 15 minutes of power each month. Under Palo Alto's E-4 tariff, one 50 kW charging spike at 6 pm on a summer weekday adds **$2,572** to the bill, for about $3 of electricity.
+- **The limit.** Owners size chargers for the worst case: the building's peak plus every charger at full power. So they install fewer chargers, or cap them and waste capacity they already pay for.
+- **The upgrade.** More connection capacity means a utility study, a new transformer and a long wait.
+
+## What Headroom does
+Headroom sits between the building's meter and its chargers.
+- **It watches the building** and charges the cars in the room the building leaves.
+- **It never lets the site go over its connection.** A safety layer guarantees the limit.
+- **The site manager just asks it questions** in plain language: *"Can I add 12 more chargers? What would it cost me?"* The operator, built on Meta's **Muse Spark**, answers from simulation, with every number checked against the math.
+- **If the internet drops,** Meta's open-weight **Muse Glimmer** takes over on site.
+
+| On real data | Result |
+|---|---|
+| Chargers on the same 1,000 kW connection | **48 instead of 36** (+33%) |
+| Drivers' energy delivered | **100%** |
+| Demand charges added by charging | **32% lower** than standard smart charging |
+| Times the site went over its limit | **0** |
+| 49 other real buildings | More chargers in **77%**, fewer in none |
+| A second utility (PG&E) | The same **48 instead of 36** |
+
+**Who it's for:** building owners and operators adding EV charging, and the companies that install and run chargers for them.
+
+**What's real and what's simulated:**
+- **Real:** the data. Recorded Palo Alto driver sessions, metered building loads, the utilities' published tariffs, grid-alert days.
+- **Simulated:** the site that combines them, and the chargers. They are driven over the real OCPP protocol, but not physical hardware.
+- This is a research prototype, not a deployed product. No utility or Meta endorsement is implied.
+
+## How it works
 
 1. **See the building.** A forecast of the building's load for the next 24 hours, as calibrated quantiles (an hour-of-day statistical profile; no trained model at runtime).
 2. **Plan the charging.** A linear program (HiGHS) re-solved every 15 minutes charges every car under the demand level the month has already paid for, and raises it only by the minimum the drivers' needs require.
@@ -14,6 +45,15 @@ Headroom charges the cars in the room the building leaves:
 4. **Muse Spark runs the site.** It reads the utility's tariff (verified on Palo Alto's and PG&E's), takes requests by text or voice, sizes a plan change for a grid alert from the building's own past alert days, spots blocked bays on camera, and answers expansion questions from simulation. It can act only through validated tools, and every number in its answers is checked against the tool results. If the internet drops, **Muse Glimmer** on the site's own GPU takes over; charging never depends on either model.
 
 > The model proposes, the math decides, the safety layer guarantees.
+
+## Meta models used
+| Meta model | What it does here |
+|---|---|
+| **Muse Spark 1.3** (Meta Model API) | The site operator: answers the site manager through checked tools, reads utility tariffs, sizes grid-alert changes, watches the bay camera |
+| **Muse Voice Transcribe 1.0** (Meta Model API) | Spoken requests to text |
+| **Muse Glimmer** (open weights) | Backup operator on the site's own GPU when the internet is cut |
+
+Details, and how each model's output is checked: [Meta models](#meta-models).
 
 ## Results
 Held-out test months (May–Oct 2017), real data only; nothing was tuned on them. Same real driver sessions for every controller; 6 months × 3 resampled fleets = 18 month-scenarios per row.
@@ -169,3 +209,12 @@ Long studies can also run on Kaggle's free machines: `python scripts/kaggle_run.
 - `headroom/meta/client.py`: Meta model client with record/replay, failover and the spend guard
 - `scripts/`: benchmark, capacity and multi-building studies, forecasts, demo recording, data download
 - `docs/`: [FORECASTING](docs/FORECASTING.md), [DATA_SPEC](docs/DATA_SPEC.md), [VIDEO](docs/VIDEO.md), [GLIMMER_KAGGLE](docs/GLIMMER_KAGGLE.md)
+
+## License
+Code: [MIT](LICENSE). Data, under their publishers' terms:
+- Building Data Genome 2: CC-BY 4.0 (Miller et al., 2020).
+- Palo Alto open data: downloaded from the city portal by `scripts/fetch_data.py`, not redistributed.
+- The utilities' published tariffs.
+- Public-domain parking-lot video.
+
+Details: [docs/DATA_SPEC.md](docs/DATA_SPEC.md). Muse Glimmer's weights are Apache-2.0 (Meta).

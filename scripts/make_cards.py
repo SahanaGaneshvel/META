@@ -38,7 +38,55 @@ def card(name: str, lines: list[tuple[str, float, str]], footer: str = "") -> No
     print("wrote", OUT / f"{name}.png")
 
 
+def heat_wave_day() -> tuple[pd.DatetimeIndex, "np.ndarray", "np.ndarray", "np.ndarray"]:
+    """The real building's load on 21 June 2017 and the charging each controller added (Live replay)."""
+    from headroom.agent.site import ReplaySite
+    from headroom.config import LOCAL_TZ
+
+    site = ReplaySite(month="2017-06", n_ports=24)
+    local = site.scenario.index.tz_convert(LOCAL_TZ)
+    day = (local >= pd.Timestamp("2017-06-21 06:00", tz=LOCAL_TZ)) & (local < pd.Timestamp("2017-06-21 23:00", tz=LOCAL_TZ))
+    return (local[day], site.scenario.building_kw[day], site.results["headroom"].ev_kw[day],
+            site.results["llf"].ev_kw[day])
+
+
+def hero(name: str, size: tuple[float, float], tag: str) -> None:
+    """Banner / thumbnail: the name and the real heat-wave day behind it."""
+    t, building, ev, _ = heat_wave_day()
+    fig = plt.figure(figsize=size, dpi=100, facecolor=BG)
+    ax = fig.add_axes([0.58, 0.22, 0.38, 0.64], facecolor=BG)
+    hours = t.hour + t.minute / 60
+    ax.fill_between(hours, 0, building, color="#2563eb", alpha=0.85, lw=0, label="the building")
+    ax.fill_between(hours, building, building + ev, color=GREEN, alpha=0.95, lw=0, label="EV charging (Headroom)")
+    ax.set_ylim(0, 1000)  # from zero: the green band is drawn to scale
+    ax.axhline(1000, color=MUTED, lw=1.2, ls="--")
+    ax.text(hours.min() + 0.2, 965, "grid connection limit", color=MUTED, fontsize=11, va="top")
+    ax.set_xlim(hours.min(), hours.max())
+    for side in ax.spines.values():
+        side.set_visible(False)
+    ax.tick_params(colors=MUTED, labelsize=12)
+    ax.set_xticks([8, 12, 16, 20], ["8 am", "noon", "4 pm", "8 pm"])
+    ax.set_yticks([])
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=2, frameon=False, labelcolor=INK, fontsize=12)
+    fig.text(0.96, 0.03, "Real metered load · 21 June 2017 heat-wave alert", ha="right", color=MUTED, fontsize=10)
+    title = min(size[0] * 5.0, size[1] * 10)
+    fig.text(0.05, 0.64, "HEADROOM", fontsize=title, color=INK, fontweight="bold", family="DejaVu Sans")
+    fig.text(0.05, 0.52, "AI operator for EV charging", fontsize=title * 0.40, color=GREEN, family="DejaVu Sans")
+    fig.text(0.05, 0.36, "More chargers on the grid\nconnection you already have", fontsize=title * 0.30,
+             color=INK, family="DejaVu Sans", linespacing=1.3)
+    fig.text(0.05, 0.19, f"  {tag}  ", fontsize=title * 0.22, color=BG, fontweight="bold", family="DejaVu Sans",
+             bbox=dict(boxstyle="round,pad=0.4", fc=GREEN, ec="none"))
+    fig.text(0.05, 0.07, "Muse Spark · Muse Voice Transcribe · Muse Glimmer", fontsize=title * 0.19, color=MUTED,
+             family="DejaVu Sans")
+    OUT.mkdir(parents=True, exist_ok=True)
+    fig.savefig(OUT / f"{name}.png", facecolor=BG)
+    plt.close(fig)
+    print("wrote", OUT / f"{name}.png")
+
+
 def main() -> None:
+    hero("banner", (16, 5.6), "META AI HACKATHON 2026")
+    hero("thumbnail", (12.8, 7.2), "PROJECT DEMO")
     spec = load_gold("e-4-tou_2026")
     summer = next(s for s in spec.seasons if 7 in s.months)
     spike = 50 * sum(d.usd_per_kw for d in summer.demand)
