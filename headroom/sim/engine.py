@@ -94,7 +94,10 @@ class Result:
     extra: dict = field(default_factory=dict)
 
 
-def simulate(scenario: Scenario, controller: Controller, safety: SafetyLayer | None = None) -> Result:
+def simulate(scenario: Scenario, controller: Controller, safety: SafetyLayer | None = None,
+             observer=None) -> Result:
+    """Run the month. `observer(t, active, kw)`, if given, sees each interval's per-car power after the
+    safety layer: what a site would send to its chargers (headroom.ocpp_bridge)."""
     safety = safety or SafetyLayer(scenario.service_kw)
     n_steps = len(scenario.index)
     remaining = scenario.request_kwh.astype(float).copy()
@@ -109,6 +112,8 @@ def simulate(scenario: Scenario, controller: Controller, safety: SafetyLayer | N
                         max_kw=scenario.max_kw[active], building_measured=scenario.building_kw[:t],
                         ev_history=ev_kw[:t])
         kw, clipped[t] = safety.apply(controller.decide(view, scenario), view, scenario)
+        if observer is not None:
+            observer(t, active, kw)
         remaining[active] -= kw * STEP_H
         ev_kw[t] = kw.sum()
     return Result(controller=controller.name, ev_kw=ev_kw, delivered_kwh=scenario.request_kwh - remaining,

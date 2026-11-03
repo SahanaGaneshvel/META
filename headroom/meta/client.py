@@ -153,8 +153,10 @@ class ModelClient:
             from openai import OpenAI
 
             if not (self.config.api_key and self.config.base_url and self.config.model):
-                raise RuntimeError(f"{self.config.role}: set HEADROOM_{self.config.role.upper()}_API_KEY, "
-                                   f"_PROVIDER (or _BASE_URL) and _MODEL in .env")
+                what = ("Muse Spark needs MODEL_API_KEY (Meta Model API) in .env" if self.config.role == "spark"
+                        else "Muse Glimmer needs a local server: HEADROOM_GLIMMER_BASE_URL in .env "
+                             "(docs/GLIMMER_KAGGLE.md)")
+                raise RuntimeError(f"Live calls aren't set up on this machine: {what}.")
             self._client = OpenAI(base_url=self.config.base_url, api_key=self.config.api_key,
                                   max_retries=0, timeout=300)  # every retry would be billed
         return self._client
@@ -297,7 +299,8 @@ def transcribe(raw_wav: bytes, mode: str | None = None, recordings: Path = RECOR
     if mode in ("auto", "replay") and path.exists():
         return json.loads(path.read_text(encoding="utf-8"))["response"]["transcript"]
     if mode == "replay":
-        raise RecordingMissing("no recording for this audio; switch Model calls to Live")
+        raise RecordingMissing("new audio can't be replayed: transcribing it is a live call to Muse Voice "
+                               "Transcribe (Model calls: Live, with MODEL_API_KEY in .env)")
     key = RoleConfig.from_env("spark").api_key
     if not key:
         raise RuntimeError("set MODEL_API_KEY (Meta Model API) in .env for live transcription")

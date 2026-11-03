@@ -1,0 +1,34 @@
+{
+ "day": "2017-06-21",
+ "window_local": "16:00-21:00",
+ "chargers": 24,
+ "intervals": 20,
+ "accepted": 480,
+ "messages": 480,
+ "max_limit_mismatch_w": 0.0,
+ "max_interval_total_gap_kw": 0.0,
+ "median_round_trip_ms_all_chargers": 87.5,
+ "peak_planned_ev_kw": 68.0,
+ "example_set_charging_profile": {
+  "connectorId": 1,
+  "csChargingProfiles": {
+   "chargingProfileId": 1,
+   "stackLevel": 1,
+   "chargingProfilePurpose": "TxDefaultProfile",
+   "chargingProfileKind": "Absolute",
+   "validFrom": "2017-06-22T01:30:00+00:00",
+   "validTo": "2017-06-22T01:45:00+00:00",
+   "chargingSchedule": {
+    "duration": 900,
+    "startSchedule": "2017-06-22T01:30:00+00:00",
+    "chargingRateUnit": "W",
+    "chargingSchedulePeriod": [
+     {
+      "startPeriod": 0,
+      "limit": 6200.0
+     }
+    ]
+   }
+  }
+ }
+}

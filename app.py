@@ -19,7 +19,7 @@ from headroom.agent.operator import DEMO_REQUESTS, SYSTEM, run
 from headroom.agent.site import ReplaySite
 from headroom.capacity import hosting_capacity
 from headroom.config import DATA, LOCAL_TZ
-from headroom.meta.client import FailoverClient, ModelClient, RecordingMissing, transcribe
+from headroom.meta.client import FailoverClient, ModelClient, RecordingMissing, RoleConfig, transcribe
 from headroom.tariff import load_gold
 
 st.set_page_config(page_title="Headroom", page_icon="⚡", layout="wide")
@@ -126,8 +126,14 @@ def speak(text: str) -> None:
             unsafe_allow_javascript=True)
 
 
+@st.cache_data
+def live_available() -> bool:
+    """Live calls need a Meta Model API key in .env; without one the app only replays recordings."""
+    return bool(RoleConfig.from_env("spark").api_key)
+
+
 def replay_mode() -> bool:
-    return st.session_state.get("calls", "Replay") == "Replay"
+    return not live_available() or st.session_state.get("calls", "Replay") == "Replay"
 
 
 def current_site() -> ReplaySite:
@@ -285,8 +291,10 @@ def operator() -> None:
         shown.append({"role": "assistant", "text": turn.answer, "note": f"{who} · {check}", "steps": steps})
         speak(turn.answer)
     except RecordingMissing:
-        shown.append({"role": "assistant", "text": "There's no recorded answer for that question. Switch "
-                      "**Model calls** to Live in the sidebar (needs a Meta Model API key)."})
+        shown.append({"role": "assistant", "text": "There's no recorded answer for that question: the recorded "
+                      "conversation is the question buttons above. " + (
+                          "Switch **Model calls** to Live in the sidebar to ask anything." if live_available() else
+                          "Asking anything else needs a Meta Model API key (`MODEL_API_KEY` in `.env`).")})
     except ConnectionError:
         shown.append({"role": "assistant", "text": "No model is reachable right now. Charging carries on "
                       "unchanged: the planner and safety layer never depend on a model."})
@@ -325,7 +333,7 @@ def check_building() -> None:
                 st.markdown("**Where the gain comes from:** a fixed cap keeps room for the building's rarest peak "
                             "all year; Headroom only holds it back when the peak is coming. Buildings whose peak is "
                             "brief (at most 20 hours a year within 10% of it) gained a median **+82%**; the rest "
-                            "about +10%.")
+                            "about +10%. With a tighter connection (peak ÷ 0.9) the median gain rises to **+31%**.")
                 st.caption("Each dot is one real metered building (BDG2), screened on Jul–Aug 2017. Above the dotted "
                            "line, Headroom fits more. Service size isn't in the data: estimated as the peak before "
                            "those months ÷ 0.8 (the electrical-code continuous-load rule). The safety layer's allowance "
@@ -465,8 +473,23 @@ def proof() -> None:
     st.title("Proof and data")
     st.markdown("Everything below is measured on **held-out months** (May–Oct 2017) that nothing was tuned on, with "
                 "real data only. Each table is a file in `data/results/` produced by a script in `scripts/`.")
-    bench, capacity, calibration, calls, data = st.tabs(
-        ["Benchmark", "Charger capacity", "Forecast calibration", "Model call log", "Data and assumptions"])
+    bench, capacity, calibration, chargers, calls, data = st.tabs(
+        ["Benchmark", "Charger capacity", "Forecast calibration", "Charger control (OCPP)", "Model call log",
+         "Data and assumptions"])
+    with chargers:
+        demo = RESULTS / "ocpp_demo.json"
+        if demo.exists():
+            o = json.loads(demo.read_text())
+            a, b, c = st.columns(3)
+            a.metric("Commands accepted", f"{o['accepted']} of {o['messages']}")
+            b.metric("Planned vs received limit", f"{o['max_limit_mismatch_w']:.0f} W apart")
+            c.metric("All chargers updated in", f"{o['median_round_trip_ms_all_chargers']:.0f} ms")
+            st.caption(f"Headroom's real decisions for {o['day']}, {o['window_local']} ({o['intervals']} intervals) "
+                       f"sent to {o['chargers']} simulated chargers as OCPP 1.6J SetChargingProfile commands over "
+                       "websockets. Each limit lasts one interval, so chargers fall back to their safe default if "
+                       "the controller goes quiet. scripts/ocpp_demo.py")
+            with st.expander("One command, as sent"):
+                st.json(o["example_set_charging_profile"])
     with bench:
         final = RESULTS / "final_summary.csv"
         if final.exists():
@@ -561,7 +584,11 @@ with st.sidebar:
     st.toggle("Cut the site's internet", key="link_down",
               help="The cloud model becomes unreachable and the operator switches to Muse Glimmer on the site's "
                    "own GPU. Charging never depends on either model.")
-    st.segmented_control("Model calls", ["Replay", "Live"], default="Replay", key="calls", required=True,
-                         help="Replay uses recorded Muse Spark responses, so the demo runs without a key")
+    if live_available():
+        st.segmented_control("Model calls", ["Replay", "Live"], default="Replay", key="calls", required=True,
+                             help="Replay uses the recorded model responses; Live calls the models (billed)")
+    else:
+        st.caption("Model calls: **replaying recorded answers**. Live calls need a Meta Model API key "
+                   "(`MODEL_API_KEY` in `.env`).")
     st.caption("Meta models: Muse Spark 1.3 · Muse Voice Transcribe · Muse Glimmer")
 page.run()

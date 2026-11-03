@@ -55,10 +55,27 @@ Headroom Check on 49 metered buildings from BDG2 at 7 US sites (22 education, 8 
 - **Gains vary widely.** No change in 10 of 44 buildings, +50% or more in 14, more than double in 6 (e.g. 22 → 76 chargers).
 - **Our main site isn't an outlier.** Its +33% is better than 61% of these 44 buildings.
 - In 5 small or very spiky buildings neither controller can guarantee room for even 2 chargers.
+- **The connection size is estimated, so we tested a tighter one.** BDG2 doesn't record connection sizes; the main study uses peak ÷ 0.8 (the electrical code's continuous-load rule). With a tighter connection (peak ÷ 0.9), Headroom's advantage grows:
+  - median **+31%** (95% CI +12% to +143%);
+  - more chargers in 79% of buildings, fewer in none; +52% in total;
+  - 0 violations at the reported sizes (`PORTFOLIO_SHARE=0.9`, `portfolio_summary_share90.csv`).
+  - The tighter the connection, the more seeing the building matters.
 - Honest caveats:
   - In 6 buildings the test months contained a load rise larger than any in the building's past year (16 intervals in all). Fleet sizes where this caused a violation were rejected (6 simulated months).
-  - The connection size is estimated, as stated under *Assumptions and limits*.
   - Our main site (+33%) is excluded from these figures.
+  - Every building is paired with the same Palo Alto driver sessions, so the result doesn't depend on any one building–garage pairing.
+
+### Driving real chargers: OCPP 1.6J
+Headroom's decisions leave the simulator as **OCPP 1.6J `SetChargingProfile` commands**, the open protocol commercial chargers use for power limits (`headroom/ocpp_bridge.py`).
+- **What it sends:** every 15 minutes, each charger gets an absolute limit in watts for that interval.
+  - An idle charger gets 0 W, so a new car waits for the next decision instead of adding unplanned load.
+  - The limit expires with the interval, so if the controller goes quiet, chargers fall back to their installed safe default.
+- **Test** (`scripts/ocpp_demo.py`): the real plan for the heat-wave evening (21 June 2017, 4–9 pm) is sent to 24 simulated chargers over local websockets.
+  - 480 commands, **480 accepted**.
+  - **0 W** difference between planned and received limits.
+  - Each interval's total matches the simulation exactly.
+  - All 24 chargers are updated in under 0.1 s.
+- **What's still missing:** the chargers are simulated, so a pilot on real hardware is the next step. Messages are built and schema-checked by the open-source `ocpp` library.
 
 ## Meta models
 | Model | Where it runs | Job in Headroom | How its output is checked |
@@ -76,7 +93,11 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 - **Overview** tells the story; **Live replay** shows the real heat-wave day; **Ask the operator** replays the recorded conversation one click per question; **Check any building** screens a sample building (or your own meter export); **How the AI is checked** and **Proof and data** show the verifiers and every result.
-- Sidebar: **Cut the site's internet** switches the operator to Muse Glimmer; **Model calls: Live** calls the models (needs `MODEL_API_KEY` for the Meta Model API in `.env`; see `.env.example`). Keys live only in `.env`, which is never committed. A hard spend guard in `headroom/meta/client.py` refuses any call that could take the total past the budget.
+- Sidebar: **Cut the site's internet** switches the operator to Muse Glimmer.
+- **Model calls: Live** calls the models.
+  - It appears only when `MODEL_API_KEY` (Meta Model API) is set in `.env`; see `.env.example`. Without a key, the app replays the recorded answers.
+  - Keys live only in `.env`, which is never committed. Don't set a key on a public deployment.
+  - A hard spend guard in `headroom/meta/client.py` refuses any call that could take the total past the budget.
 - The first visit to a replay page simulates the month (about a minute) and caches it.
 
 ## Data (real recorded data only)
@@ -85,22 +106,22 @@ python -m venv .venv
 | City of Palo Alto open data: WEBSTER garage charging sessions, 2016–2017 (6 ports) | Every car's arrival, departure and energy. Larger garages re-use real recorded port-days (same day type, ±7 days) |
 | Building Data Genome 2 (Miller et al., *Scientific Data* 7, 368, 2020): UC Berkeley `Bear_education_Patricia` | The building sharing the connection; hourly → 15-minute with an energy-preserving split |
 | BDG2, other US sites | The multi-building study (quality-filtered, fixed-seed sample) |
-| City of Palo Alto Utilities E-4 TOU and E-7 TOU tariffs (2026) | Bills; hand-checked gold copies for the tariff verifier |
+| City of Palo Alto Utilities E-4 TOU and E-7 TOU tariffs (2026); PG&E Schedule B-19 (effective 1 March 2026) | Bills; hand-checked gold copies for the tariff verifier |
 | CAISO Flex Alert dates | Grid-stress events |
 
 Preprocessing only transforms real data (time zones, cleaning, ≤ 3 h gap filling, the energy-preserving split). Details and every count: [docs/DATA_SPEC.md](docs/DATA_SPEC.md), `data/processed/REPORT.md`.
 
 ## Assumptions and limits
-- Simulation on recorded data, not a live site: the building and the garage are real but from neighbouring cities, sharing an assumed 1,000 kW connection.
-- 2026 prices on 2016–2017 behaviour; one tariff family (CPAU). The tariff reader is built to take other utilities' documents.
-- In the multi-building study the connection size isn't in the data: estimated as the peak before the screened months ÷ 0.8 (the electrical code's continuous-load rule).
+- Simulation on recorded data, not a live site: the building and the garage are real but from neighbouring cities, sharing an assumed 1,000 kW connection. The 49-building study pairs the same sessions with many real buildings. The control path to chargers is tested over OCPP against simulated chargers, not real hardware.
+- 2026 prices on 2016–2017 behaviour. Tariffs: Palo Alto (CPAU) E-4 and E-7, and PG&E B-19, a different utility with different periods. All three are read by Muse Spark and verified.
+- In the multi-building study the connection size isn't in the data: estimated as the peak before the screened months ÷ 0.8 (the electrical code's continuous-load rule), with a tighter ÷ 0.9 sensitivity case.
 - The simulation steps in 15 minutes, so the safety layer keeps an allowance for the building's load rising before the next reading. It budgets against the building's highest reading of the past 3 hours (riding through meter dropouts) plus an allowance sized from that building's own past year (largest rise + 20%; 60 kW for the main building). The guarantee holds whenever a rise stays within that allowance, and every run reports any rise that didn't. A real deployment would read the meter every few seconds.
 - The bay camera demo uses public-domain parking-lot footage with bays marked for illustration.
 
 ## Built during the hackathon, and what isn't ours
 **Built during the hackathon (Oct 26 – Nov 4, 2026; git history from Oct 27):** everything in `headroom/`, `scripts/`, `tests/` and `app.py`: data pipeline, simulator, safety layer, Headroom's planner, forecasts, transformer model, tariff reader and verifiers, operator agent and tools, number check, failover, Headroom Check and the studies, and the app.
 
-**Third-party, used unmodified as libraries:** [adacharge](https://github.com/caltech-netlab/adacharge) and [acnportal](https://github.com/zach401/acnportal) (Caltech; the adacharge MPC baseline), HiGHS (via SciPy), CVXPY/Clarabel (for adacharge), LightGBM (ablation only), Streamlit, Plotly, pandas, NumPy, pydantic, the OpenAI Python SDK (as the client for Meta's OpenAI-compatible API).
+**Third-party, used unmodified as libraries:** [adacharge](https://github.com/caltech-netlab/adacharge) and [acnportal](https://github.com/zach401/acnportal) (Caltech; the adacharge MPC baseline), HiGHS (via SciPy), CVXPY/Clarabel (for adacharge), LightGBM (ablation only), [ocpp](https://github.com/mobilityhouse/ocpp) and websockets (the charger protocol), Streamlit, Plotly, pandas, NumPy, pydantic, the OpenAI Python SDK (as the client for Meta's OpenAI-compatible API).
 
 **Prior work:** the forecasting idea (an hour-of-day baseline improved by gradient boosting) follows our 2025 IndiaAI hackathon entry; no code from it is used. Our first commit (`b85b2e1`) accidentally included that 2025 notebook and its write-up; they were removed in `cc2d789` and nothing in Headroom uses them.
 
@@ -114,7 +135,12 @@ Preprocessing only transforms real data (time zones, cleaning, ≤ 3 h gap filli
 .\.venv\Scripts\python.exe scripts\capacity_study.py test        # hosting capacity (~25 min)
 .\.venv\Scripts\python.exe scripts\portfolio_study.py select     # the multi-building sample
 .\.venv\Scripts\python.exe scripts\portfolio_study.py run        # the multi-building study (hours)
+.\.venv\Scripts\python.exe scripts\portfolio_study.py drivers    # which building traits go with a larger gain
+$env:PORTFOLIO_SHARE="0.9"; .\.venv\Scripts\python.exe scripts\portfolio_study.py run   # tighter connection
+$env:TARIFF="pge-b-19_2026"; .\.venv\Scripts\python.exe scripts\final_benchmark.py      # under PG&E B-19
+.\.venv\Scripts\python.exe scripts\ocpp_demo.py                  # the plan sent to 24 chargers over OCPP 1.6J
 ```
+Long studies can also run on Kaggle's free machines: `python scripts/kaggle_run.py study` (see the script).
 
 ## Code layout
 - `headroom/data/`: datasets → one 15-minute site table
@@ -123,6 +149,7 @@ Preprocessing only transforms real data (time zones, cleaning, ≤ 3 h gap filli
 - `headroom/control/`: Headroom's planner and the baselines
 - `headroom/forecast/`: hour-of-day profile (runtime), LightGBM blend (ablation), walk-forward files
 - `headroom/check.py`: Headroom Check for any building's meter data
+- `headroom/ocpp_bridge.py`: decisions → OCPP 1.6J charging profiles; a simulated charger for tests
 - `headroom/thermal.py`: IEEE C57.91 transformer ageing
 - `headroom/agent/`: operator agent, tools, number check, tariff reader, bay check, the replay site
 - `headroom/meta/client.py`: Meta model client with record/replay, failover and the spend guard

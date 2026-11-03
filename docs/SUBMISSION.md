@@ -14,22 +14,23 @@ Headroom forecasts the building's load, plans the charging in the room the build
 ## Results (held-out months, real data)
 - 48 chargers instead of 36 (+33%) on the same 1,000 kW connection, every driver served, 0 limit violations.
 - 32% lower demand charges than standard smart charging and Caltech's open-source adacharge MPC ($2,889 vs $4,231/month at 24 chargers), 100% of energy delivered; 82% of the saving a perfect-foresight controller gets.
-- Across 49 real metered buildings at 7 US sites: more chargers in 77% of them (fewer in none), a median +15% (95% CI +10% to +45%), 0 limit violations.
+- Across 49 real metered buildings at 7 US sites: more chargers in 77% of them (fewer in none), a median +15% (95% CI +10% to +45%), 0 limit violations. With a tighter connection the median gain rises to +31%; buildings with a brief peak gain the most (median +82%).
+- Decisions reach chargers as OCPP 1.6J commands: the heat-wave evening's plan sent to 24 simulated chargers, 480 of 480 accepted, 0 W from plan.
 
 ## How we used Meta's models
-- **Muse Spark 1.3** (Meta Model API): tool-calling site operator; tariff document → structured rates, verified by bill reproduction (25/25 fields, 0.0% bill error); bay video → occupancy, cross-checked with charger power (6/6 bays).
+- **Muse Spark 1.3** (Meta Model API): tool-calling site operator; tariff document → structured rates, verified by field-by-field comparison and bill reproduction: Palo Alto E-4 and E-7 15/15, PG&E B-19 21/21, every bill reproduced exactly; bay video → occupancy, cross-checked with charger power (6/6 bays).
 - **Muse Voice Transcribe 1.0** (Meta Model API): spoken requests → text.
 - **Muse Glimmer** (open weights, on-site GPU): automatic failover operator when the cloud is unreachable.
 Every output has a verifier; every call is recorded with its provenance and replayed in the demo.
 
 ## How we built it
-Python: a 15-minute simulator on real Palo Alto charging sessions and BDG2 building meters; the planner (SciPy HiGHS); the safety layer (fuzz-tested on 10,000 plans); a calibrated hour-of-day forecast; pydantic tool schemas; a provider-agnostic Meta model client with record/replay, failover and a hard spend guard; a Streamlit app. Everything was written during the hackathon; Caltech's adacharge/acnportal are used unmodified as a baseline.
+Python: a 15-minute simulator on real Palo Alto charging sessions and BDG2 building meters; the planner (SciPy HiGHS); the safety layer (fuzz-tested on 10,000 plans); a calibrated hour-of-day forecast; pydantic tool schemas; a provider-agnostic Meta model client with record/replay, failover and a hard spend guard; an OCPP 1.6J bridge to chargers; a Streamlit app. Everything was written during the hackathon; Caltech's adacharge/acnportal are used unmodified as a baseline.
 
 ## Challenges
 Driving charging into the building's valleys without starving drivers (the strict policy serves only 86%, so drivers-first is a hard priority priced from the tariff itself); keeping an LLM out of the control loop while making it genuinely useful; proving the gain beyond one site.
 
 ## What's next
-Pilots on real chargers over OCPP; any utility's tariff (the reader is document-driven); India (TNERC time-of-day EV tariffs, kVA-limited malls and fleet depots); batteries and solar as extra controllable assets.
+Pilots on real chargers (the OCPP interface is built and tested against simulated chargers); more utilities' tariffs (the reader is document-driven and already verified on two utilities); India (TNERC time-of-day EV tariffs, kVA-limited malls and fleet depots); batteries and solar as extra controllable assets.
 
 **Links:** repo [URL] · live demo [URL] · video [URL]
 
