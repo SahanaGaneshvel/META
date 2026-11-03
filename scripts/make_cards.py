@@ -61,7 +61,7 @@ def main() -> None:
         gain = (both["chargers_headroom"] / both["chargers_standard_smart_charging"] - 1).median()
         lines.append((f"Across {len(p)} real buildings at {p['site_id'].nunique()} US sites: median {gain:+.0%} chargers",
                       28, MUTED))
-    card("2_result", lines, "Held-out months, real data: Palo Alto charging sessions · BDG2 metered buildings · CPAU tariffs")
+    card("2_result", lines, "Held-out months, real data: Palo Alto charging sessions · BDG2 metered buildings · Palo Alto and PG&E tariffs")
     card("3_close", [("Headroom", 80, INK), ("More chargers, same connection.", 40, GREEN),
                      ("The model proposes, the math decides, the safety layer guarantees.", 28, MUTED)],
          "Meta models: Muse Spark · Muse Voice Transcribe · Muse Glimmer   ·   Built Oct 26 – Nov 4, 2026")

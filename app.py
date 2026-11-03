@@ -512,6 +512,14 @@ def proof() -> None:
                 st.caption(f"24 chargers · 6 months × 3 resampled real-session fleets per row. Headroom captures "
                            f"{h['of_possible']:.0%} of the saving a perfect-foresight controller gets. "
                            f"scripts/final_benchmark.py")
+            other = RESULTS / "final_summary_pge-b-19_2026.csv"
+            if other.exists():
+                o = pd.read_csv(other, index_col="controller")
+                b = o["added_demand_usd"]
+                st.markdown(f"**Same site on PG&E's B-19 tariff:** Headroom ${b['headroom']:,.0f}/month vs "
+                            f"${b['llf']:,.0f} for standard smart charging ({b['headroom'] / b['llf'] - 1:+.0%}), "
+                            f"{o.loc['headroom', 'energy_served']:.1%} of energy delivered, "
+                            f"{o.loc['headroom', 'service_violations']:.0f} violations.")
     with capacity:
         cap = RESULTS / "capacity_summary_test.csv"
         if cap.exists():
