@@ -1,0 +1,4 @@
+# Only for making the demo video (scripts/video/), not for running the app.
+playwright==1.55.0
+pypdfium2==4.30.0
+imageio-ffmpeg

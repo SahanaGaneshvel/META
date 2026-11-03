@@ -152,7 +152,13 @@ python -m venv .venv
   - It appears only when `MODEL_API_KEY` (Meta Model API) is set in `.env`; see `.env.example`. Without a key, the app replays the recorded answers.
   - Keys live only in `.env`, which is never committed. Don't set a key on a public deployment.
   - A hard spend guard in `headroom/meta/client.py` refuses any call that could take the total past the budget.
-- The first visit to a replay page simulates the month (about a minute) and caches it.
+- Each visitor gets their own copy of the simulated site, so one visitor's questions never change another's.
+
+**Host it (Streamlit Community Cloud, free):**
+1. Sign in at share.streamlit.io with GitHub and choose **Create app**.
+2. Pick this repo, branch `main`, main file `app.py`. Under **Advanced settings**, pick Python 3.12.
+3. Deploy. It installs `requirements.txt`, the slim app-only list.
+4. Add no secrets. Without a key the hosted app replays the recorded answers and costs nothing.
 
 ## Data (real recorded data only)
 | Source | Use |

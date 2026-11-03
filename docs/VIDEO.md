@@ -1,31 +1,81 @@
-# Demo video: script and shot list (3:00 hard limit)
+# Demo video
 
-The final judges watch this live. Rules: show only what was built during the hackathon; every number on screen
-comes from a file in `data/results/` (source marked ▶); real data only. Fill [brackets] from the final run.
+The video has no voice. Captions tell the story, burned into the picture, so it works muted. Every
+number and screen comes from the real app, the real data or the utility's own tariff document.
 
-**Format:** screen capture of the app (1920×1080, browser zoom 110%) + voice-over + 3 title cards. Burned-in
-captions (judges may watch muted). Music low. One idea per scene; cut, don't scroll.
+## Make it
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r scripts\video\requirements-video.txt
+.\.venv\Scripts\python.exe -m playwright install chromium
+.\.venv\Scripts\python.exe scripts\video\capture.py    # drives the real app, screenshots -> video/shots/
+.\.venv\Scripts\python.exe scripts\video\build.py      # -> video/headroom_demo.mp4 (1080p, about 2:30, silent)
+```
 
-| Time | On screen | Voice-over (~150 words/min) |
+## The story (about 2:30)
+| Scene | On screen | Caption |
 |---|---|---|
-| **0:00–0:10** Hook | Black card, white text over a load spike: **"This 15 minutes cost $2,572."** | "One fifteen-minute charging spike at six p.m. added two and a half thousand dollars to this building's bill. The electricity in it cost three." |
-| **0:10–0:25** Problem | Overview page, "The problem" card | "Malls, offices and depots share one meter between the building and the chargers, and the utility bills the highest fifteen minutes of the month. So owners stop adding chargers, or wait years for a grid upgrade." |
-| **0:25–0:40** What it is | Overview: the four "How it works" cards, one highlighted at a time | "Headroom sees the building, plans the charging in the room it leaves, and a safety layer guarantees the limit. Meta's Muse Spark runs the site." |
-| **0:40–1:10** Heat-wave day | Live replay, 21 June 2017; drag 2 pm → 9 pm; orange climbs into the peak, green stays under it; metric **−$1,066 vs standard smart charging** (month to date at 6 pm; it updates as you drag) | "This is a real heat-wave alert day in Palo Alto, with four times today's chargers. Standard smart charging can't see the building, so it charges straight into the evening peak. Headroom fills the valleys. Same cars, the energy delivered, thirty-two percent lower demand charges." ▶ final_summary |
-| **1:10–1:35** Operator by voice | Ask the operator: hold the mic, say *"Fleet vans need forty kilowatt-hours each by six a.m. Can we do it?"*; transcript appears; answer + "every number traced to a tool result ✅"; open "How it got this" | "The site manager just asks. Muse Voice Transcribe hears it, Muse Spark calls the planner. It can only act through checked tools, and every number it says is traced back to the math." |
-| **1:35–1:50** Grid alert | Recorded question 2: the alert, sized from past alert days, re-plan result | "On a grid alert it sizes the change from this building's own past alert days, cites the source, and the planner decides." |
-| **1:50–2:05** Internet cut | Sidebar toggle **Cut the site's internet** → ask again → *"— Muse Glimmer (on site)"* | "Cut the internet. Muse Glimmer, Meta's open-weight model on the site's own GPU, takes over. The chargers never depended on either." |
-| **2:05–2:30** Any building | Check any building: **"Tested on 49 real buildings at 7 US sites: median +15% chargers"**; click *Try a sample building* → answer card | "Does it work beyond one site? On forty-nine real buildings across seven US sites, it fits more chargers in three out of four, a median fifteen percent more, on the same connection. Upload your own meter data and get your answer." ▶ portfolio_summary |
-| **2:30–2:45** Checked AI | How the AI is checked: pick **PG&E B-19** → **21/21 fields, bill reproduced** → misread demo **rejected** | "Muse Spark reads any utility's tariff, here PG&E's, and we only accept it if it reproduces the real bill. Misread one number and it's rejected." |
-| **2:45–3:00** Close | Card: **"48 chargers instead of 36. Same connection. 0 violations."** · Meta: Muse Spark · Muse Voice Transcribe · Muse Glimmer · Built Oct 26–Nov 4 | "The model proposes, the math decides, the safety layer guarantees. Headroom: more chargers, same connection." |
+| Title | Headroom over the real heat-wave day's meter data | (none) |
+| The want | Dark card | Offices, malls and depots want more EV chargers. But the chargers share the building's grid connection. |
+| The bill | The real Palo Alto E-4 tariff page, demand charges circled | Utilities bill a business for its highest 15 minutes… $30.18 + $21.27 for every kW of that peak. |
+| The cost | Card: "This 15 minutes cost $2,572." | (on the card) |
+| The cause | The real building's meter on 21 June 2017; standard smart charging stacks onto the evening peak and sets a new monthly peak | Standard smart charging can't see the building… |
+| The result today | Card | So owners install fewer chargers, or wait for a grid upgrade. |
+| Headroom | Title card + the four steps | (on the card) |
+| The day, replayed | The app's Live replay, 2 pm → 9 pm | Headroom charges in the room the building leaves… 32% lower demand charges. |
+| The operator | Ask the operator: the recorded conversation | Muse Spark answers through checked tools… every number traced to a tool result. |
+| Internet cut | The sidebar toggle; Muse Glimmer answers | Meta's open-weight Muse Glimmer takes over on site. |
+| Beyond one building | Check any building: 49 buildings, the sample | More chargers in 77% of them, fewer in none. |
+| Trust | PG&E tariff read 21/21; OCPP 480/480 | Read only if it reproduces the real bill; chargers driven over OCPP. |
+| Result | Card: 48 chargers instead of 36 | (on the card) |
+| Close | Card | (on the card) |
 
-## Shots to capture (in order)
-1. Overview (static, 5 s). 2. Live replay drag 14:00 → 21:00 at 2 s per step (speed up in edit).
-3. Operator: voice request (Live mode; costs < $0.01), then recorded question 2 (Replay).
-4. Sidebar toggle → Glimmer answer (Replay). 5. Check any building: sample. 6. Tariff verify + misread.
-7. Title cards (`docs/cards/`).
+## Finish it in Clipchamp (free, built into Windows 11; about 15 minutes)
+1. Open **Clipchamp**, then **Create a new video**, and import `video/headroom_demo.mp4`.
+2. **Optional real-world opener (5–8 s).**
+   - Search Clipchamp's free **Stock video** for "EV charging station" or "electric car charging parking". Pexels also works and is free to use.
+   - Drag a clip to the start of the timeline.
+   - Add a **Text** overlay: *"This building wants more EV chargers."*
+   - Keep the total under 3:00.
+3. **Music.**
+   - Open **Content library**, then **Audio**, then **Music**, and pick a calm, upbeat track.
+   - Drag it under the whole video and set its volume to about 20%.
+   - Fade it out over the last 3 seconds.
+4. **Export** at 1080p and check the length is under 3:00.
+5. **Upload to YouTube** as *Unlisted* or *Public*.
+   - Thumbnail: `docs/cards/thumbnail.png`.
+   - Description: use the text below.
 
-## Before recording
-- [ ] Numbers in the cards match `data/results/final_summary.csv`, `capacity_summary_test.csv`, `portfolio_summary.csv`
-- [ ] Glimmer recordings present (docs/GLIMMER_KAGGLE.md); app in Replay except the voice shot
-- [ ] Browser: clean profile, no bookmarks bar, 110% zoom; notifications off
+## YouTube description
+```
+Headroom: an AI operator that fits more EV chargers on the grid connection a building already has.
+
+Offices, malls and depots want more EV chargers, but the chargers share the building's grid connection, and
+utilities bill the highest 15 minutes of each month. Headroom watches the building, charges the cars in the
+room the building leaves, and guarantees the site never goes over its limit. Meta's Muse Spark runs the site:
+the manager just asks it questions, and every number in its answers is checked against the math.
+
+Built for the Meta Global AI Developer Hackathon 2026 (Indie track).
+
+WHAT YOU'LL SEE
+• The real problem: a real building's meter, a real utility tariff, and what one charging spike costs.
+• A real heat-wave day replayed: standard smart charging vs Headroom.
+• Muse Spark answering the site manager through checked tools.
+• The internet cut: Meta's open-weight Muse Glimmer takes over on site.
+• 49 real buildings, a second utility's tariff, and chargers driven over OCPP.
+
+RESULTS (held-out months, real data)
+• 48 chargers instead of 36 on the same connection; every driver fully charged; 0 limit violations.
+• 32% lower demand charges than standard smart charging.
+• More chargers in 77% of 49 real buildings, fewer in none.
+
+META MODELS
+Muse Spark 1.3 · Muse Voice Transcribe 1.0 · Muse Glimmer (open weights)
+
+EXPLORE THE PROJECT
+Source code: [GitHub link]
+Try the app: [app link]
+
+The data is real: Palo Alto charging sessions, Building Data Genome 2 meters, published utility tariffs.
+The site that combines them and the chargers are simulated. Research prototype; no utility or Meta
+endorsement is implied.
+```

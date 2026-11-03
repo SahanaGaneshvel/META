@@ -88,7 +88,9 @@ def main() -> None:
             # the heat-wave day, hour by hour (the page opens at ?at=HH:MM)
             for minutes in range(14 * 60, 21 * 60 + 1, 15):
                 page.goto(f"{URL}/replay?at={minutes // 60:02d}:{minutes % 60:02d}")
-                idle(page, 1.0)
+                idle(page, 0.5)
+                page.wait_for_selector(".js-plotly-plot .scatterlayer .trace", timeout=120_000)  # chart drawn
+                time.sleep(1.2)
                 shot(page, f"replay_{minutes // 60:02d}{minutes % 60:02d}")
 
             # the recorded conversation with Muse Spark
