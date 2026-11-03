@@ -6,6 +6,7 @@ never supplies a number itself.
 """
 from __future__ import annotations
 
+import copy
 import pickle
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,6 +60,15 @@ class ReplaySite:
         self.forecast = PrecomputedForecaster().predict(self.scenario.index, self.scenario.building_kw)
         self.results = self._simulate_all()
         self.labels = interval_labels(self.scenario.index, self.spec)
+
+    def fork(self) -> "ReplaySite":
+        """A copy for one user: shares the read-only data, owns everything a conversation changes
+        (requirements, grid adjustments and the re-planned results; the forecast is replaced, never
+        edited in place)."""
+        twin = copy.copy(self)
+        twin.results = dict(self.results)
+        twin.requirements, twin.adjustments = list(self.requirements), list(self.adjustments)
+        return twin
 
     # -- simulation, cached because each month takes about a minute ---------------------------
     def _simulate_all(self) -> dict[str, Result]:

@@ -1,0 +1,21 @@
+# What the app needs to run (Streamlit Community Cloud reads this file). The full research
+# environment, with the forecaster ablation, the studies and the tests, is requirements.lock.txt.
+streamlit==1.66.1
+plotly==7.1.0
+pandas==3.1.0
+numpy==2.5.4
+scipy==1.18.1
+highspy==1.15.1
+pyarrow==26.0.0
+pydantic==2.14.1
+holidays==0.107
+pypdf==6.21.2
+requests==2.34.2
+openai==3.37.0
+python-dotenv==1.2.4
+matplotlib==3.11.2
+scikit-learn==1.7.2
+cvxpy==1.9.3
+clarabel==0.11.1
+acnportal==0.3.3
+adacharge @ git+https://github.com/caltech-netlab/adacharge.git@b7d5fddb25e842333fc2b404d32dd3477ca47297

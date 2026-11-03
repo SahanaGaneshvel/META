@@ -107,7 +107,7 @@ def replay_chart(site: ReplaySite, frame: pd.DataFrame, now: pd.Timestamp, t_now
     fig.add_trace(go.Scatter(x=past["time"], y=past["building"], name="Building alone",
                              line=dict(color=COLORS["building"], width=1.5)))
     for name in (["static_cap"] if show_static else []) + ["llf", "headroom"]:
-        fig.add_trace(go.Scatter(x=past["time"], y=past[name], name=f"Site with {NAMES[name].lower()}",
+        fig.add_trace(go.Scatter(x=past["time"], y=past[name], name=f"Site with {NAMES[name] if name == 'headroom' else NAMES[name].lower()}",
                                  line=dict(color=COLORS[name], width=3.5 if name == "headroom" else 2)))
     fig.add_hline(y=site.scenario.service_kw, line_dash="dot", line_color="#dc2626",
                   annotation_text="Grid connection limit", annotation_position="bottom right")
@@ -137,7 +137,16 @@ def replay_mode() -> bool:
 
 
 def current_site() -> ReplaySite:
-    return load_site(st.session_state.get("day", "2017-06-21")[:7], 24)
+    """This visitor's own copy of the simulated month: one visitor's questions never change another's site."""
+    month = st.session_state.get("day", "2017-06-21")[:7]
+    if f"site_{month}" not in st.session_state:
+        st.session_state[f"site_{month}"] = load_site(month, 24).fork()
+    return st.session_state[f"site_{month}"]
+
+
+def md(text: str) -> str:
+    """Show $ amounts as money, not as the start of a math formula (Streamlit markdown reads $...$ as LaTeX)."""
+    return text.replace("$", r"\$")
 
 
 # ------------------------------------------------------------------------------------------ pages
@@ -150,11 +159,11 @@ def overview() -> None:
 
     with st.container(border=True):
         st.markdown("##### The problem")
-        st.markdown(f"Malls, offices and depots share **one meter** between the building and its chargers. "
+        st.markdown(md(f"Malls, offices and depots share **one meter** between the building and its chargers. "
                     f"The utility bills the highest 15 minutes of the month: under Palo Alto's E-4 tariff, one "
                     f"{SPIKE_KW} kW charging spike at 6 pm on a summer weekday adds **${h['spike_usd']:,.0f}** to the "
                     f"bill, for about ${h['spike_energy_usd']:.0f} of electricity. So owners stop adding chargers, or "
-                    f"cap them and waste the room they have.")
+                    f"cap them and waste the room they have."))
 
     if "usd_headroom" in h:
         st.markdown(f"##### Results on months the system never saw (May–Oct 2017, real data, 24 chargers)")
@@ -201,9 +210,10 @@ def replay() -> None:
     top = st.columns([2, 3])
     day = top[0].selectbox("Day", list(DAYS), format_func=DAYS.get, index=list(DAYS).index(st.session_state["day"]))
     st.session_state["day"] = day
-    site = load_site(day[:7], 24)
+    site = current_site()
     times = list(pd.date_range(f"{day} 00:00", f"{day} 23:45", freq="15min"))
-    now = top[1].select_slider("Time of day", options=times, value=pd.Timestamp(f"{day} 18:00"),
+    at = pd.Timestamp(f"{day} {st.query_params.get('at', '18:00')}").floor("15min")  # ?at=14:00 opens there
+    now = top[1].select_slider("Time of day", options=times, value=at if at in times else times[72],
                                format_func=lambda t: t.strftime("%H:%M"))
     site.now_local = now.strftime("%Y-%m-%dT%H:%M")
     t_now = site.t
@@ -239,7 +249,7 @@ def operator() -> None:
     shown = st.session_state.setdefault("shown", [])
     for msg in shown:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["text"])
+            st.markdown(md(msg["text"]))
             if msg.get("note"):
                 st.caption(msg["note"])
             if msg.get("steps"):
@@ -263,7 +273,8 @@ def operator() -> None:
         voice = st.audio_input("Record a request", help="Muse Voice Transcribe turns it into text; Muse Spark answers")
     if shown and st.button("Start over"):
         st.session_state["history"], st.session_state["shown"] = [{"role": "system", "content": SYSTEM}], []
-        load_site.clear()
+        for key in [k for k in st.session_state if k.startswith("site_")]:
+            del st.session_state[key]  # a fresh copy of the month for this visitor only
         st.rerun()
     typed = st.chat_input("Ask, e.g. “Fleet vans need 60 kWh each by 6 am. Can we do it?”")
     request = request or typed
@@ -390,9 +401,9 @@ def check_building() -> None:
         c.metric("Grid-limit violations", answer.get("violations_at_reported_sizes", answer["service_violations"]))
         usd = answer.get("added_demand_usd_per_month_at_standard_capacity") or {}
         if "llf" in usd and "headroom" in usd:
-            st.markdown(f"At {answer['chargers_standard_smart_charging']} chargers, charging adds "
+            st.markdown(md(f"At {answer['chargers_standard_smart_charging']} chargers, charging adds "
                         f"**${usd['headroom']:,}/month** in demand charges with Headroom, versus ${usd['llf']:,} "
-                        f"with standard smart charging.")
+                        f"with standard smart charging."))
         if "buildings" in h:
             st.markdown(f"For comparison: across the {h['buildings']} buildings tested, the median gain is "
                         f"**{h['building_gain']:+.0%}**."
@@ -437,9 +448,9 @@ def verified() -> None:
             bad = gold.model_copy(deep=True)
             bad.seasons[0].demand[0].usd_per_kw = 10.26  # only the commodity column: a classic misread
             acc, bills = field_accuracy(bad, gold), bill_check(bad, gold, site.site["building_kw"])
-            st.markdown(f"Palo Alto E-4, reading only one column of the summer peak demand charge ($10.26 instead of "
+            st.markdown(md(f"Palo Alto E-4, reading only one column of the summer peak demand charge ($10.26 instead of "
                         f"${gold.seasons[0].demand[0].usd_per_kw}): **{acc['correct']} of {acc['fields']} fields right, "
-                        f"but the bill is off by {bills['worst_error']:.1%} in {bills['worst_month']}, so it's rejected.**")
+                        f"but the bill is off by {bills['worst_error']:.1%} in {bills['worst_month']}, so it's rejected.**"))
 
     with st.container(border=True):
         from headroom.agent.bays import decide, load_bays, observe, occupancy_accuracy
@@ -516,10 +527,10 @@ def proof() -> None:
             if other.exists():
                 o = pd.read_csv(other, index_col="controller")
                 b = o["added_demand_usd"]
-                st.markdown(f"**Same site on PG&E's B-19 tariff:** Headroom ${b['headroom']:,.0f}/month vs "
+                st.markdown(md(f"**Same site on PG&E's B-19 tariff:** Headroom ${b['headroom']:,.0f}/month vs "
                             f"${b['llf']:,.0f} for standard smart charging ({b['headroom'] / b['llf'] - 1:+.0%}), "
                             f"{o.loc['headroom', 'energy_served']:.1%} of energy delivered, "
-                            f"{o.loc['headroom', 'service_violations']:.0f} violations.")
+                            f"{o.loc['headroom', 'service_violations']:.0f} violations."))
     with capacity:
         cap = RESULTS / "capacity_summary_test.csv"
         if cap.exists():
