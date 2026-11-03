@@ -1,7 +1,9 @@
-"""Record Muse Glimmer's answers on a free Kaggle T4 x2, end to end from this machine.
+"""Run Headroom jobs on Kaggle's free machines, end to end from this machine.
 
-    python scripts/kaggle_run.py            # package, upload (private), run, wait, download
+    python scripts/kaggle_run.py            # Muse Glimmer on a T4 x2: record the operator's answers
     RECORD_N=6 python scripts/kaggle_run.py # include the last question once the portfolio study is in
+    python scripts/kaggle_run.py study      # a long study on Kaggle's CPUs (default: the connection-size
+                                            # sensitivity, PORTFOLIO_SHARE=0.9 portfolio_study.py run)
 
 Needs a Kaggle API token in ~/.kaggle/access_token (phone-verified account for GPUs). The upload is a
 `git archive` of the last commit: committed files only, never .env. Nothing here is billed.
@@ -20,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 KAGGLE = str(Path(sys.executable).with_name("kaggle"))
-DATASET, KERNEL = "headroom-code", "headroom-glimmer"
+DATASET = "headroom-code"
 
 
 def kaggle(*args: str, check: bool = True) -> str:
@@ -39,7 +41,14 @@ def username() -> str:
     return api.get_config_value("username") or api.read_config_file().get("username")
 
 
-def main() -> None:
+JOBS = {  # kind: (kernel, script, accelerator, output archive, files to unpack)
+    "glimmer": ("headroom-glimmer", "glimmer_record.py", "NvidiaTeslaT4", "glimmer_recordings.zip", "data/recordings/"),
+    "study": ("headroom-study", "study_run.py", None, "study_results.zip", "data/results/"),
+}
+
+
+def main(kind: str = "glimmer") -> None:
+    kernel, script, accelerator, archive_name, prefix = JOBS[kind]
     user = username()
     print("Kaggle user:", user)
     work = Path(tempfile.mkdtemp())
@@ -57,42 +66,44 @@ def main() -> None:
         print(kaggle("datasets", "version", "-p", str(data_dir), "-m", "update"))
     time.sleep(30)  # let the dataset finish processing
 
-    # 2. the kernel, on T4 x2 with internet
+    # 2. the kernel (GPU for Glimmer, CPU for studies), with internet for pip
     kdir = work / "kernel"
     kdir.mkdir()
-    code = (ROOT / "scripts" / "kaggle" / "glimmer_record.py").read_text()
+    code = (ROOT / "scripts" / "kaggle" / script).read_text()
     code = code.replace('os.environ.get("RECORD_N", "5")', f'"{os.environ.get("RECORD_N", "5")}"')
-    (kdir / "glimmer_record.py").write_text(code)
+    for var, default in (("STUDY_COMMAND", "scripts/portfolio_study.py run"), ("STUDY_ENV", "PORTFOLIO_SHARE=0.9")):
+        code = code.replace(f'os.environ.get("{var}", "{default}")', f'"{os.environ.get(var, default)}"')
+    (kdir / script).write_text(code)
     (kdir / "kernel-metadata.json").write_text(json.dumps({
-        "id": f"{user}/{KERNEL}", "title": KERNEL, "code_file": "glimmer_record.py", "language": "python",
-        "kernel_type": "script", "is_private": True, "enable_gpu": True, "enable_internet": True,
+        "id": f"{user}/{kernel}", "title": kernel, "code_file": script, "language": "python",
+        "kernel_type": "script", "is_private": True, "enable_gpu": accelerator is not None, "enable_internet": True,
         "dataset_sources": [f"{user}/{DATASET}"], "competition_sources": [], "kernel_sources": []}))
-    print(kaggle("kernels", "push", "-p", str(kdir), "--accelerator", "NvidiaTeslaT4"))
+    print(kaggle("kernels", "push", "-p", str(kdir), *(["--accelerator", accelerator] if accelerator else [])))
 
     # 3. wait
     started = time.time()
     while True:
-        status = kaggle("kernels", "status", f"{user}/{KERNEL}", check=False)
+        status = kaggle("kernels", "status", f"{user}/{kernel}", check=False)
         print(f"[{(time.time() - started) / 60:4.1f} min] {status.strip()}", flush=True)
         if any(s in status.lower() for s in ("complete", "error", "cancel")):
             break
         time.sleep(60)
 
-    # 4. download and unpack the new recordings
+    # 4. download and unpack the results
     out = work / "output"
-    print(kaggle("kernels", "output", f"{user}/{KERNEL}", "-p", str(out), check=False))
+    print(kaggle("kernels", "output", f"{user}/{kernel}", "-p", str(out), check=False))
     log = next(out.glob("*.log"), None)
     if log:
         print(log.read_text(errors="replace")[-3000:])
-    archive = out / "glimmer_recordings.zip"
+    archive = out / archive_name
     if not archive.exists():
-        raise SystemExit(f"no recordings came back; kernel output is in {out}")
+        raise SystemExit(f"nothing came back; kernel output is in {out}")
     with zipfile.ZipFile(archive) as z:
-        names = [n for n in z.namelist() if n.startswith("data/recordings/") and n.endswith(".json")]
+        names = [n for n in z.namelist() if n.startswith(prefix) and ".." not in n]
         z.extractall(ROOT, members=names)
-    print(f"{len(names)} Glimmer recordings added to data/recordings/")
+    print(f"{len(names)} files added under {prefix}")
     shutil.rmtree(work, ignore_errors=True)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else "glimmer")
