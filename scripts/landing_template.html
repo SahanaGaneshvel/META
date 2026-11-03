@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headroom</title>
+<meta name="description" content="An AI operator that fits more EV chargers on the grid connection a building already has.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0f1c; --surface:#0f1626; --line:rgba(148,163,184,.14); --ink:#e8ecf4; --muted:#8b96aa;
+    --accent:#5eead4; --accent-strong:#2dd4bf; --building:#818cf8; --coral:#fb7185; --amber:#fbbf24;
+  }
+  * { box-sizing:border-box; margin:0; }
+  html { -webkit-font-smoothing:antialiased; }
+  body { background:var(--bg); color:var(--ink); font:16px/1.6 Inter, "Segoe UI", system-ui, sans-serif;
+         background-image:radial-gradient(900px 420px at 50% -120px, rgba(94,234,212,.10), transparent 70%),
+                          radial-gradient(700px 380px at 85% 10%, rgba(129,140,248,.08), transparent 70%); }
+  a { color:inherit; text-decoration:none; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; }
+
+  header { display:flex; justify-content:space-between; align-items:center; padding:26px 0; }
+  .logo { font-weight:600; letter-spacing:.02em; font-size:17px; display:flex; align-items:center; gap:10px; }
+  .mark { width:22px; height:22px; border-radius:6px; background:linear-gradient(135deg, var(--accent), var(--building)); }
+  nav a { margin-left:26px; color:var(--muted); font-size:14px; transition:color .2s; }
+  nav a:hover { color:var(--ink); }
+
+  .hero { padding:56px 0 8px; text-align:center; }
+  .eyebrow { display:inline-block; font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent);
+             border:1px solid rgba(94,234,212,.25); border-radius:999px; padding:6px 14px; }
+  .hero h1 { font-size:clamp(32px,5.2vw,54px); line-height:1.1; font-weight:600; letter-spacing:-.025em; margin-top:22px; }
+  .hero h1 span { background:linear-gradient(90deg, var(--accent), var(--building)); -webkit-background-clip:text;
+                  background-clip:text; color:transparent; }
+  .hero p { color:var(--muted); font-size:clamp(16px,1.9vw,18px); max-width:620px; margin:18px auto 0; }
+  .cta { margin-top:30px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn { padding:11px 22px; border-radius:10px; font-weight:500; font-size:15px; border:1px solid var(--line);
+         transition:transform .2s, border-color .2s, background .2s; }
+  .btn:hover { transform:translateY(-1px); border-color:rgba(148,163,184,.35); }
+  .btn.main { background:var(--accent-strong); color:#06201c; border-color:transparent; }
+  .btn.main:hover { background:var(--accent); }
+  .rise { opacity:0; transform:translateY(12px); animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards; }
+  .d1 { animation-delay:.12s } .d2 { animation-delay:.24s } .d3 { animation-delay:.38s } .d4 { animation-delay:.52s }
+  @keyframes rise { to { opacity:1; transform:none; } }
+
+  .carousel { position:relative; margin:52px 0 0; border:1px solid var(--line); border-radius:20px; overflow:hidden;
+              background:linear-gradient(180deg, rgba(15,22,38,.9), rgba(10,15,28,.9)); touch-action:pan-y; }
+  .progress { position:absolute; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--accent), var(--building)); }
+  .running .progress { animation:fill linear forwards; }
+  @keyframes fill { to { width:100%; } }
+  .track { display:flex; transition:transform .8s cubic-bezier(.65,0,.35,1); }
+  .slide { min-width:100%; padding:52px clamp(22px,5vw,60px) 72px; display:grid; grid-template-columns:1fr 1.15fr;
+           gap:44px; align-items:center; min-height:380px; }
+  .step-no { color:var(--accent); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:500; }
+  .slide h2 { font-size:clamp(24px,3vw,34px); line-height:1.18; font-weight:600; letter-spacing:-.02em; margin-top:12px; }
+  .slide p { color:var(--muted); margin-top:14px; font-size:16px; }
+  .figure { font-size:clamp(52px,7vw,80px); font-weight:600; letter-spacing:-.03em; line-height:1; color:var(--coral); margin-top:18px; }
+  .dots { position:absolute; bottom:26px; left:0; right:0; display:flex; gap:8px; justify-content:center; }
+  .dot { width:6px; height:6px; border-radius:99px; background:rgba(148,163,184,.3); border:0; padding:0; cursor:pointer; transition:all .35s; }
+  .dot.on { width:22px; background:var(--accent); }
+  .arrow { position:absolute; bottom:16px; width:34px; height:34px; border-radius:99px; border:1px solid var(--line);
+           background:transparent; color:var(--muted); cursor:pointer; font-size:15px; transition:color .2s, border-color .2s; }
+  .arrow:hover { color:var(--ink); border-color:rgba(148,163,184,.4); }
+  .arrow.l { right:62px } .arrow.r { right:22px }
+
+  svg text { font-family:Inter, "Segoe UI", sans-serif; }
+  .draw-line { stroke-dasharray:1200; stroke-dashoffset:1200; }
+  .shown .draw-line { animation:dash 1.8s ease forwards; }
+  @keyframes dash { to { stroke-dashoffset:0; } }
+  .appear { opacity:0; }
+  .shown .appear { animation:rise .7s ease forwards; }
+  .shown .a1 { animation-delay:.5s } .shown .a2 { animation-delay:1s } .shown .a3 { animation-delay:1.5s }
+  .reveal { clip-path:inset(0 100% 0 0); }
+  .shown .reveal { animation:reveal 2.4s cubic-bezier(.3,.6,.2,1) forwards; }
+  @keyframes reveal { to { clip-path:inset(0 0 0 0); } }
+  .bar { transform-origin:bottom; transform:scaleY(.05); transition:none; }
+  .shown .bar { animation:grow 1.2s cubic-bezier(.2,.7,.2,1) forwards; }
+  .shown .bar.late { animation-delay:1s; }
+  @keyframes grow { to { transform:scaleY(1); } }
+
+  .chat .msg { padding:12px 16px; border-radius:14px; margin:10px 0; font-size:14.5px; max-width:94%; opacity:0; }
+  .chat .q { margin-left:auto; background:rgba(148,163,184,.10); border:1px solid var(--line); }
+  .chat .a { background:rgba(45,212,191,.07); border:1px solid rgba(94,234,212,.22); }
+  .chat .a small { display:block; margin-top:7px; color:var(--accent); font-size:12px; }
+  .shown .chat .msg { animation:rise .6s ease forwards; }
+  .shown .chat .m2 { animation-delay:.9s } .shown .chat .m3 { animation-delay:2s }
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .stat { border:1px solid var(--line); border-radius:14px; padding:18px; opacity:0; background:rgba(15,22,38,.6); }
+  .shown .stat { animation:rise .6s ease forwards; }
+  .shown .stat:nth-child(2){animation-delay:.12s} .shown .stat:nth-child(3){animation-delay:.24s} .shown .stat:nth-child(4){animation-delay:.36s}
+  .stat b { font-size:28px; font-weight:600; letter-spacing:-.02em; display:block; color:var(--ink); }
+  .stat span { color:var(--muted); font-size:13.5px; line-height:1.4; display:block; margin-top:4px; }
+
+  .models { margin:46px 0 0; text-align:center; color:var(--muted); font-size:14px; }
+  .models b { color:var(--ink); font-weight:500; }
+  .models i { font-style:normal; margin:0 10px; opacity:.4; }
+  footer { color:var(--muted); font-size:12.5px; text-align:center; padding:28px 0 44px; margin-top:44px; border-top:1px solid var(--line); line-height:1.7; }
+
+  @media (max-width:780px) {
+    .slide { grid-template-columns:1fr; gap:26px; padding-bottom:84px; }
+    nav a:not(.keep) { display:none; }
+    .hero { padding-top:30px; }
+    .hero h1 br { display:none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before { animation:none !important; transition:none !important; }
+    .rise, .appear, .chat .msg, .stat { opacity:1; transform:none; }
+    .reveal { clip-path:none; } .bar { transform:none; } .draw-line { stroke-dashoffset:0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="rise">
+    <div class="logo"><div class="mark"></div>Headroom</div>
+    <nav><a href="{{VIDEO}}">Demo video</a><a href="{{APP}}">Live app</a><a class="keep" href="{{REPO}}">GitHub</a></nav>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow rise d1">AI operator for EV charging</div>
+    <h1 class="rise d2">More EV chargers on the grid<br>connection <span>you already have.</span></h1>
+    <p class="rise d3">Headroom watches the building, charges the cars in the room it leaves, and guarantees the site never goes
+      over its limit. Meta's Muse Spark runs it day to day.</p>
+    <div class="cta rise d4">
+      <a class="btn main" href="{{VIDEO}}">Watch the demo</a>
+      <a class="btn" href="{{APP}}">Try the live app</a>
+    </div>
+  </section>
+
+  <div class="carousel rise d4" id="car" aria-roledescription="carousel">
+    <div class="progress"></div>
+    <div class="track">
+
+      <div class="slide">
+        <div>
+          <div class="step-no">01 · The problem</div>
+          <h2>Every building wants more chargers. They all share one grid connection.</h2>
+          <p>Owners size chargers for the worst case, the building's peak plus every charger at full power. So they install
+            fewer, or wait for a costly grid upgrade.</p>
+        </div>
+        <svg viewBox="0 0 420 240" aria-hidden="true">
+          <path class="draw-line" d="M20 120 H150 M150 120 V60 H230 M150 120 V180 H230" stroke="var(--amber)" stroke-width="1.5" fill="none" opacity=".8"/>
+          <text x="20" y="108" fill="var(--amber)" font-size="12" opacity=".9">one grid connection</text>
+          <g class="appear a1">
+            <rect x="236" y="22" width="96" height="76" rx="8" fill="none" stroke="var(--building)" stroke-width="1.5"/>
+            <text x="284" y="65" fill="var(--building)" font-size="13" text-anchor="middle">building</text>
+          </g>
+          <g class="appear a2" stroke="var(--accent)" stroke-width="1.5" fill="none">
+            <rect x="236" y="150" width="30" height="58" rx="5"/><rect x="276" y="150" width="30" height="58" rx="5"/>
+            <rect x="316" y="150" width="30" height="58" rx="5"/>
+            <rect x="356" y="150" width="30" height="58" rx="5" stroke-dasharray="4 4" opacity=".5"/>
+          </g>
+          <text class="appear a3" x="311" y="230" fill="var(--muted)" font-size="12" text-anchor="middle">EV chargers</text>
+        </svg>
+      </div>
+
+      <div class="slide">
+        <div>
+          <div class="step-no">02 · The bill</div>
+          <h2>Utilities bill your highest 15 minutes of the month.</h2>
+          <div class="figure">{{SPIKE}}</div>
+          <p>What one 50 kW charging spike at 6 pm adds to a summer bill under Palo Alto's E-4 tariff, for {{ENERGY}} of electricity.</p>
+        </div>
+        <svg viewBox="0 0 420 240" aria-hidden="true">
+          <g fill="var(--building)" opacity=".55">
+            <rect class="bar" x="20" y="132" width="26" height="80" rx="3"/><rect class="bar" x="56" y="122" width="26" height="90" rx="3"/>
+            <rect class="bar" x="92" y="112" width="26" height="100" rx="3"/><rect class="bar" x="128" y="104" width="26" height="108" rx="3"/>
+            <rect class="bar" x="164" y="100" width="26" height="112" rx="3"/><rect class="bar" x="200" y="96" width="26" height="116" rx="3"/>
+            <rect class="bar" x="236" y="94" width="26" height="118" rx="3"/><rect class="bar" x="308" y="110" width="26" height="102" rx="3"/>
+            <rect class="bar" x="344" y="124" width="26" height="88" rx="3"/><rect class="bar" x="380" y="136" width="26" height="76" rx="3"/>
+          </g>
+          <rect class="bar" x="272" y="92" width="26" height="120" rx="3" fill="var(--building)" opacity=".55"/>
+          <rect class="bar late" x="272" y="34" width="26" height="56" rx="3" fill="var(--coral)"/>
+          <text class="appear a3" x="285" y="24" fill="var(--coral)" font-size="12" text-anchor="middle">+50 kW</text>
+          <line x1="10" y1="213" x2="414" y2="213" stroke="var(--line)"/>
+          <text x="285" y="232" fill="var(--muted)" font-size="11" text-anchor="middle">6 pm</text>
+        </svg>
+      </div>
+
+      <div class="slide">
+        <div>
+          <div class="step-no">03 · What Headroom does</div>
+          <h2>It sees the building and charges in the room it leaves.</h2>
+          <p>A real heat-wave day at a real building. Charging (teal) fills the room under the peak the month has already
+            paid for, re-planned every 15 minutes, while a safety layer guarantees the limit.</p>
+        </div>
+        <svg viewBox="0 0 600 264" aria-label="The building's real load on 21 June 2017, with Headroom's charging on top">
+          <defs>
+            <linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#818cf8" stop-opacity=".55"/><stop offset="1" stop-color="#818cf8" stop-opacity=".08"/></linearGradient>
+            <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5eead4" stop-opacity=".95"/><stop offset="1" stop-color="#2dd4bf" stop-opacity=".6"/></linearGradient>
+          </defs>
+          <rect x="{{PEAK_X}}" y="0" width="{{PEAK_W}}" height="232" fill="var(--amber)" opacity=".06"/>
+          <text x="{{PEAK_X}}" y="14" dx="8" fill="var(--amber)" font-size="11.5" opacity=".9">4–9 pm</text>
+          <line x1="0" y1="{{LIMIT_Y}}" x2="600" y2="{{LIMIT_Y}}" stroke="var(--coral)" stroke-dasharray="4 5" opacity=".7"/>
+          <text x="598" y="{{LIMIT_Y}}" dy="-6" fill="var(--coral)" font-size="11.5" text-anchor="end" opacity=".9">grid connection limit</text>
+          <g class="reveal"><path d="{{BUILDING_PATH}}" fill="url(#gb)"/><path d="{{EV_PATH}}" fill="url(#ge)"/></g>
+          <line x1="0" y1="232" x2="600" y2="232" stroke="var(--line)"/>
+          <text x="0" y="254" fill="var(--muted)" font-size="11.5">6 am</text>
+          <text x="300" y="254" fill="var(--muted)" font-size="11.5" text-anchor="middle">real metered load · 21 June 2017</text>
+          <text x="600" y="254" fill="var(--muted)" font-size="11.5" text-anchor="end">11 pm</text>
+        </svg>
+      </div>
+
+      <div class="slide">
+        <div>
+          <div class="step-no">04 · Muse Spark runs the site</div>
+          <h2>The site manager just asks.</h2>
+          <p>Meta's Muse Spark answers through checked tools: it never touches the chargers, and every number it says is traced
+            to the math. If the internet drops, Meta's open-weight Muse Glimmer takes over on site.</p>
+        </div>
+        <div class="chat">
+          <div class="msg q">Can I add 12 more chargers? What would it cost me?</div>
+          <div class="msg a m2">Yes: 36 in total, within this site's capacity of {{WITH}}. Drivers get {{SERVED36}} of their energy,
+            with {{VIOL36}} limit violations, for about {{EXTRA}} a month more in demand charges.
+            <small>Muse Spark · every number traced to a tool result</small></div>
+          <div class="msg q m3">Is there a grid alert today?</div>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div>
+          <div class="step-no">05 · Results on real data</div>
+          <h2>{{WITH}} chargers instead of {{WITHOUT}}, on the same connection.</h2>
+          <p>Held-out months, real drivers, a real metered building and the utility's own tariff. Then the same check on
+            {{BUILDINGS}} more real buildings at {{SITES}} US sites.</p>
+        </div>
+        <div class="stats">
+          <div class="stat"><b>{{GAIN}}</b><span>chargers on the same grid connection</span></div>
+          <div class="stat"><b>{{SAVING}}</b><span>lower demand charges than standard smart charging</span></div>
+          <div class="stat"><b>{{SERVED}}</b><span>of drivers' energy delivered, {{VIOLATIONS}} times over the limit</span></div>
+          <div class="stat"><b>{{MORE}}</b><span>of {{BUILDINGS}} real buildings fit more chargers, none fewer</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="dots"></div>
+    <button class="arrow l" aria-label="Previous slide">←</button><button class="arrow r" aria-label="Next slide">→</button>
+  </div>
+
+  <div class="models rise d4">Built on <b>Muse Spark</b><i>·</i><b>Muse Voice Transcribe</b><i>·</i><b>Muse Glimmer</b></div>
+
+  <footer>Meta Global AI Developer Hackathon 2026 · <a href="{{REPO}}">Source on GitHub</a> · MIT licence<br>
+    Real data: City of Palo Alto charging sessions, Building Data Genome 2 meters, published utility tariffs. The site that
+    combines them and the chargers are simulated. Research prototype.</footer>
+</div>
+
+<script>
+(() => {
+  const car = document.getElementById('car'), track = car.querySelector('.track');
+  const slides = [...track.children], dots = car.querySelector('.dots'), bar = car.querySelector('.progress');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let i = 0, timer = null, x0 = null;
+  slides.forEach((s, k) => {
+    s.setAttribute('role', 'group'); s.setAttribute('aria-label', `${k + 1} of ${slides.length}`);
+    const d = document.createElement('button'); d.className = 'dot'; d.setAttribute('aria-label', `Slide ${k + 1}`);
+    d.onclick = () => go(k, true); dots.appendChild(d);
+  });
+  function go(k, byHand) {
+    i = (k + slides.length) % slides.length;
+    track.style.transform = `translateX(-${i * 100}%)`;
+    slides.forEach((s, n) => { s.classList.toggle('shown', n === i); s.setAttribute('aria-hidden', n !== i); });
+    [...dots.children].forEach((d, n) => d.classList.toggle('on', n === i));
+    play(byHand ? 10000 : 6500);
+  }
+  function play(ms) {
+    clearTimeout(timer); car.classList.remove('running'); void bar.offsetWidth;
+    if (still) return;
+    bar.style.animationDuration = ms + 'ms'; car.classList.add('running');
+    timer = setTimeout(() => go(i + 1), ms);
+  }
+  car.querySelector('.l').onclick = () => go(i - 1, true);
+  car.querySelector('.r').onclick = () => go(i + 1, true);
+  car.addEventListener('mouseenter', () => { clearTimeout(timer); car.classList.remove('running'); });
+  car.addEventListener('mouseleave', () => play(4500));
+  car.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  car.addEventListener('touchend', e => {
+    if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1), true); x0 = null;
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'ArrowRight') go(i + 1, true); if (e.key === 'ArrowLeft') go(i - 1, true); });
+  go(0);
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@
 
 Meta Global AI Developer Hackathon 2026 · Indie track · *Push the Frontier* (energy: controlling a physical system)
 
-**[Watch the 3-minute demo](VIDEO_LINK)** · **[Try the app](APP_LINK)** · [Run it yourself](#run-the-demo-no-key-no-account) · [All results](#results)
+**[Watch the 3-minute demo](VIDEO_LINK)** · **[Try the app](APP_LINK)** · [Project page](https://sahanaganeshvel.github.io/META/) · [Run it yourself](#run-the-demo-no-key-no-account) · [All results](#results)
 
 ## The problem
 Offices, malls, campuses and fleet depots all want more EV chargers, and the chargers plug into the same grid connection as the building.
