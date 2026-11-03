@@ -337,15 +337,17 @@ def check_building() -> None:
     left, right = st.columns([3, 2])
     upload = left.file_uploader("Meter data (CSV)", type=["csv"],
                                 help="Green Button export from the utility, or any table with a timestamp and kW "
-                                     "or kWh, hourly or 15-minute, at least four months")
+                                     "or kWh: 5-, 15-, 30-minute or hourly readings, at least four months")
     service = right.number_input("Grid connection size (kW)", min_value=0, value=0, step=50,
                                  help="Leave at 0 to estimate it from your peak ÷ 0.8")
     use_sample = sample.exists() and right.button("Try a sample building", icon="🏢")
     raw = upload.getvalue() if upload is not None else (sample.read_bytes() if use_sample else None)
     if raw is None:
-        st.caption("Your file stays on this server only for the calculation. The check takes a few minutes.")
+        st.caption("Your file is used only for the calculation and isn't stored. The check simulates months of "
+                   "charging at many fleet sizes: a few minutes, up to half an hour for a large building.")
         return
     cache = RESULTS / "check_cache" / f"{hashlib.sha256(raw + str(service).encode()).hexdigest()[:16]}.json"
+    status = None
     if cache.exists():
         answer = json.loads(cache.read_text())
     else:
@@ -361,13 +363,22 @@ def check_building() -> None:
             answer.pop("runs", None)
             cache.parent.mkdir(parents=True, exist_ok=True)
             cache.write_text(json.dumps(answer, default=str))
-        except (ValueError, StopIteration, KeyError) as exc:
-            st.error(f"Couldn't read that file ({exc}). It needs a timestamp column and a kW or kWh column.")
+        except ValueError as exc:
+            if status is not None:
+                status.update(label="Stopped", state="error", expanded=False)
+            st.error(f"Can't check this building: {exc}.")
             return
+        except (StopIteration, KeyError, pd.errors.ParserError, UnicodeDecodeError):
+            st.error("Couldn't read that file. It needs a timestamp column and a kW or kWh column "
+                     "(a Green Button CSV export works).")
+            return
+    at_least = lambda key: "≥ " if answer.get(key) else ""  # noqa: E731 - the search stopped at its limit
     with st.container(border=True):
         a, b, c = st.columns(3)
-        a.metric("Chargers with standard smart charging", answer["chargers_standard_smart_charging"])
-        b.metric("Chargers with Headroom", answer["chargers_headroom"], f"{answer['extra_chargers']:+d}")
+        a.metric("Chargers with standard smart charging",
+                 f"{at_least('standard_at_least')}{answer['chargers_standard_smart_charging']}")
+        b.metric("Chargers with Headroom", f"{at_least('headroom_at_least')}{answer['chargers_headroom']}",
+                 f"{answer['extra_chargers']:+d}")
         c.metric("Grid-limit violations", answer.get("violations_at_reported_sizes", answer["service_violations"]))
         usd = answer.get("added_demand_usd_per_month_at_standard_capacity") or {}
         if "llf" in usd and "headroom" in usd:

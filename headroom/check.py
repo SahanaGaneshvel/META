@@ -41,6 +41,8 @@ from .tariff import TariffSpec
 CONTINUOUS_LOAD_SHARE = 0.8  # NEC: continuous load within 80% of the service rating
 SERVED_TARGET = 0.99
 RAMP_MARGIN = 1.2  # safety layer allowance: the largest 15-minute rise of the past year, +20%
+MAX_LONG_GAP_SHARE = 0.05  # meter data inside gaps longer than 3 hours, in the year used
+MAX_PORTS = 300  # the search stops here; larger answers are reported as "at least"
 
 
 def ramp_allowance_kw(building_kw: pd.Series) -> float:
@@ -77,24 +79,42 @@ def load_meter(source) -> pd.Series:
     cols = {c: c.strip().lower() for c in df.columns}
     df = df.rename(columns=cols)
     if "date" in df.columns and "start time" in df.columns:
-        stamp = pd.to_datetime(df["date"].astype(str) + " " + df["start time"].astype(str))
+        text = df["date"].astype(str) + " " + df["start time"].astype(str)
     else:
-        name = next(c for c in df.columns if re.search(r"time|date", c))
-        stamp = pd.to_datetime(df[name])
-    value_col = next((c for c in df.columns if re.search(r"\bkwh\b|usage|energy", c)), None)
+        name = next((c for c in df.columns if re.search(r"time|date", c)), None) or next(
+            (c for c in df.columns if re.search(r"start|interval|period", c) and not re.search(r"k?wh?\b", c)), None)
+        if name is None:
+            raise ValueError("no timestamp column (a column named like 'timestamp', 'date' or 'time')")
+        text = df[name].astype(str)
+    # keep the meter's local wall clock: drop a UTC offset if the export adds one (it changes with DST)
+    stamp = pd.to_datetime(text.str.strip().str.replace(r"(?:Z|[+-]\d{2}:?\d{2})$", "", regex=True),
+                           errors="coerce")
+    value_col = next((c for c in df.columns if re.search(r"\bk?wh\b|usage|energy|consumption", c)), None)
     unit = "kwh"
     if value_col is None:
-        value_col = next(c for c in df.columns if re.search(r"\bkw\b|demand|power|load", c))
+        value_col = next((c for c in df.columns if re.search(r"\bk?w\b|demand|power|load", c)), None)
         unit = "kw"
-    values = pd.to_numeric(df[value_col].astype(str).str.replace(",", ""), errors="coerce")
-    series = pd.Series(values.to_numpy(), index=pd.DatetimeIndex(stamp)).sort_index()
-    series = series[~series.index.duplicated()].dropna()
+    if value_col is None:
+        raise ValueError("no usage column (kW or kWh)")
+    values = pd.to_numeric(df[value_col].astype(str).str.replace(r"[,$\s]", "", regex=True), errors="coerce")
+    if re.search(r"\bw\b|\bwh\b|\(w\)|\(wh\)", value_col) and not re.search(r"\bk", value_col):
+        values = values / 1000  # watts or watt-hours
+    series = pd.Series(values.to_numpy(), index=pd.DatetimeIndex(stamp))
+    series = series[series.index.notna()].sort_index()
+    series = series[~series.index.duplicated()].dropna()  # the repeated hour when clocks fall back
+    if len(series) < 2:
+        raise ValueError("fewer than two readings")
     step = pd.Series(series.index).diff().median()
-    if step not in (pd.Timedelta("15min"), pd.Timedelta("1h")):
-        raise ValueError(f"interval {step} not supported: export hourly or 15-minute data")
+    allowed = {pd.Timedelta(m): m for m in ("5min", "15min", "30min", "1h")}
+    if step not in allowed:
+        raise ValueError(f"interval {step} not supported: export 5-, 15-, 30-minute or hourly data")
     if unit == "kwh":
         series = series / (step / pd.Timedelta("1h"))
-    series.attrs["interval"] = "15min" if step == pd.Timedelta("15min") else "1h"
+    if step == pd.Timedelta("5min"):  # average to the 15-minute billing interval
+        series = series.resample("15min").mean().dropna()
+    elif step == pd.Timedelta("30min"):  # each half hour's average applies to both of its quarter hours
+        series = series.resample("15min").ffill(limit=1).dropna()
+    series.attrs["interval"] = "1h" if step == pd.Timedelta("1h") else "15min"
     return series
 
 
@@ -107,13 +127,18 @@ def site_table(meter_kw: pd.Series) -> pd.DataFrame:
     last = pd.Timestamp(meter_kw.index[-1].normalize() + pd.Timedelta(days=1), tz=LOCAL_TZ).tz_convert("UTC")
     grid = pd.date_range(first, last, freq=INTERVAL, inclusive="left", name="ts_utc")
     out = pd.DataFrame(index=grid)
-    utc = wallclock_hourly_to_utc(meter_kw.clip(lower=0))  # works for any interval length
+    utc = wallclock_hourly_to_utc(meter_kw.clip(lower=0))  # works for any interval length; export clipped
     if meter_kw.attrs.get("interval") == "15min":
-        out["building_kw"] = utc.reindex(grid).interpolate(limit_direction="both").to_numpy()
+        raw = utc.reindex(grid)
+        missing = raw.isna()
+        run = missing.groupby((~missing).cumsum()).transform("sum")
+        out["building_kw"] = raw.interpolate(limit_direction="both").to_numpy()
+        out["long_gap"] = (missing & (run > 12)).to_numpy()  # inside a gap longer than 3 hours
     else:
         hours = pd.date_range(first, last, freq="1h", inclusive="left", name="ts_utc")
-        load_h, _ = _on_hourly_grid(utc, hours)
+        load_h, long_gap = _on_hourly_grid(utc, hours)
         out["building_kw"] = energy_preserving_quarter_hours(load_h)
+        out["long_gap"] = np.repeat(long_gap.to_numpy(), 4)
     return out
 
 
@@ -182,7 +207,7 @@ def _passes(rows: list[dict]) -> bool:
 
 
 def hosting_capacity(site_df, sessions, spec, service_kw, months, controller, seed=1,
-                     start=2, max_ports=300, step=1.5, log=None) -> tuple[int, list[dict]]:
+                     start=2, max_ports=MAX_PORTS, step=1.5, log=None) -> tuple[int, list[dict]]:
     """Exact largest fleet that passes in every month: grow geometrically until a size fails, then
     bisect between the last pass and the first fail. Returns it and every simulated month."""
     runs: list[dict] = []
@@ -220,10 +245,20 @@ def check(site_df: pd.DataFrame, sessions: pd.DataFrame, spec: TariffSpec, month
           continuous_share: float = CONTINUOUS_LOAD_SHARE) -> dict:
     """The owner-facing answer for one building. Without a service size, it is estimated from the
     peak *before* the screened months (peak / continuous_share), so the test months aren't used."""
-    before = site_df.index < pd.Timestamp(f"{months[0]}-01", tz=LOCAL_TZ).tz_convert("UTC")
+    start = pd.Timestamp(f"{months[0]}-01", tz=LOCAL_TZ).tz_convert("UTC")
+    end = pd.Timestamp(f"{months[-1]}-01", tz=LOCAL_TZ) + pd.DateOffset(months=1)
+    before = site_df.index < start
+    used = (site_df.index >= (start.tz_convert(LOCAL_TZ) - pd.DateOffset(months=12)).tz_convert("UTC")) & (
+        site_df.index < end.tz_convert("UTC"))
+    if "long_gap" in site_df and site_df.loc[used, "long_gap"].mean() > MAX_LONG_GAP_SHARE:
+        raise ValueError(f"{site_df.loc[used, 'long_gap'].mean():.0%} of the year used is inside gaps longer than "
+                         f"3 hours; the check needs near-complete meter data (at most {MAX_LONG_GAP_SHARE:.0%})")
     peak = float(site_df.loc[before, "building_kw"].max())
     assumed = service_kw is None
     service_kw = service_kw or round(peak / continuous_share, -1)
+    if service_kw <= peak:
+        raise ValueError(f"the connection ({service_kw:,.0f} kW) is not above this building's own peak "
+                         f"({peak:,.0f} kW): check the size, or leave it at 0 to estimate it")
     llf_n, llf_runs = hosting_capacity(site_df, sessions, spec, service_kw, months, "llf", seed, log=log)
     head_n, head_runs = hosting_capacity(site_df, sessions, spec, service_kw, months, "headroom", seed,
                                          start=max(2, llf_n), log=log)
@@ -240,8 +275,15 @@ def check(site_df: pd.DataFrame, sessions: pd.DataFrame, spec: TariffSpec, month
         "violations_at_reported_sizes": violations_at(runs, llf_n, head_n),
         "ramp_allowance_kw": float(runs["ramp_allowance_kw"].max()) if len(runs) else None,
         "ramp_breaches": int(runs.groupby("month")["ramp_breaches"].first().sum()) if len(runs) else 0,
+        # the search stopped at its limit while still passing: the true capacity is at least this
+        "standard_at_least": _at_limit(runs, "llf", llf_n), "headroom_at_least": _at_limit(runs, "headroom", head_n),
         "runs": runs,
     }
+
+
+def _at_limit(runs: pd.DataFrame, controller: str, n: int) -> bool:
+    tried = runs.loc[runs["controller"] == controller, "n_ports"]
+    return bool(n > 0 and len(tried) and tried.max() == n)
 
 
 def check_meter(meter_kw: pd.Series, sessions: pd.DataFrame, spec: TariffSpec,

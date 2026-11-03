@@ -1,0 +1,50 @@
+building_peak_kw,service_kw,service_assumed_from_peak,chargers_standard_smart_charging,chargers_headroom,extra_chargers,extra_share,service_violations,violations_at_reported_sizes,ramp_allowance_kw,ramp_breaches,building,seconds,site_id,primaryspaceusage,sqm,timezone
+676,750.0,True,24,103,79,3.2916666667,0,0,165.0,0,Bear_assembly_Genia,1054,Bear,Entertainment/public assembly,24256.1,US/Pacific
+224,250.0,True,3,3,0,0.0,0,0,30.0,0,Bear_education_Danna,51,Bear,Education,9663.4,US/Pacific
+103,110.0,True,1,1,0,0.0,0,0,40.0,0,Bear_education_Darrell,39,Bear,Education,5234.4,US/Pacific
+270,300.0,True,15,18,3,0.2,0,0,20.0,0,Bear_education_Derek,255,Bear,Education,6331.0,US/Pacific
+166,180.0,True,3,10,7,2.3333333333,0,0,15.0,0,Bear_education_Sharon,204,Bear,Education,5261.7,US/Pacific
+312,350.0,True,11,15,4,0.3636363636,0,0,50.0,0,Bear_education_Shelley,206,Bear,Education,22378.8,US/Pacific
+1398,1550.0,True,53,130,77,1.4528301887000001,0,0,195.0,0,Bear_education_Zandra,1494,Bear,Education,14372.7,US/Pacific
+294,330.0,True,12,19,7,0.5833333333,0,0,40.0,0,Bear_lodging_Evan,212,Bear,Lodging/residential,17205.6,US/Pacific
+1087,1210.0,True,243,243,0,0.0,0,0,85.0,0,Bull_assembly_Gerri,453,Bull,Entertainment/public assembly,11079.8,US/Central
+152,170.0,True,34,35,1,0.029411764700000002,0,0,20.0,0,Bull_education_Bryon,478,Bull,Education,4723.7,US/Central
+319,350.0,True,78,79,1,0.012820512800000001,8,0,30.0,2,Bull_education_Dakota,995,Bull,Education,3585.9,US/Central
+1764,1960.0,True,243,243,0,0.0,0,0,105.0,5,Bull_education_Linnie,472,Bull,Education,14307.0,US/Central
+904,1000.0,True,152,228,76,0.5,0,0,105.0,0,Bull_lodging_Caren,824,Bull,Lodging/residential,16509.6,US/Central
+287,320.0,True,60,73,13,0.2166666667,0,0,25.0,0,Bull_lodging_Jeremiah,786,Bull,Lodging/residential,5326.5,US/Central
+158,180.0,True,24,27,3,0.125,0,0,35.0,0,Bull_public_Jefferson,343,Bull,Public services,6015.4,US/Central
+697,770.0,True,77,187,110,1.4285714286,0,0,110.0,0,Bull_services_Nadine,2258,Bull,Services,36198.8,US/Central
+665,740.0,True,0,0,0,,0,0,245.0,0,Fox_assembly_Adrianne,35,Fox,Entertainment/public assembly,21391.8,US/Mountain
+653,730.0,True,17,17,0,0.0,0,0,85.0,0,Fox_education_Andre,273,Fox,Education,17044.0,US/Mountain
+247,270.0,True,0,0,0,,0,0,45.0,0,Fox_education_Eldon,35,Fox,Education,4613.7,US/Mountain
+391,430.0,True,9,10,1,0.1111111111,0,0,55.0,0,Fox_education_Etta,168,Fox,Education,4497.5,US/Mountain
+662,740.0,True,41,111,70,1.7073170732,0,0,100.0,0,Fox_lodging_Helen,1248,Fox,Lodging/residential,51394.9,US/Mountain
+509,570.0,True,9,9,0,0.0,0,0,65.0,0,Fox_lodging_Wallace,159,Fox,Lodging/residential,5885.2,US/Mountain
+456,510.0,True,22,100,78,3.5454545455,0,0,45.0,0,Fox_office_Zachary,1106,Fox,Office,13038.5,US/Mountain
+261,290.0,True,0,0,0,,0,0,30.0,0,Fox_public_Denny,34,Fox,Public services,4058.1,US/Mountain
+154,170.0,True,0,0,0,,0,0,35.0,0,Hog_assembly_Jasmine,39,Hog,Entertainment/public assembly,5314.1,US/Central
+162,180.0,True,4,5,1,0.25,0,0,30.0,0,Hog_education_Madge,91,Hog,Education,6786.0,US/Central
+101,110.0,True,0,0,0,,0,0,10.0,0,Hog_office_Man,33,Hog,Office,8099.9,US/Central
+417,460.0,True,72,73,1,0.0138888889,0,0,60.0,1,Hog_office_Marlena,949,Hog,Office,12239.5,US/Central
+279,310.0,True,9,28,19,2.1111111111,0,0,55.0,2,Hog_office_Napoleon,394,Hog,Office,12365.4,US/Central
+322,360.0,True,11,16,5,0.4545454545,0,0,65.0,0,Hog_office_Shawna,273,Hog,Office,18213.0,US/Central
+329,370.0,True,12,35,23,1.9166666667,0,0,205.0,0,Hog_parking_Marcus,437,Hog,Parking,25222.4,US/Central
+384,430.0,True,0,0,0,,0,0,155.0,4,Hog_parking_Shannon,33,Hog,Parking,63138.2,US/Central
+461,510.0,True,15,37,22,1.4666666667000001,0,0,35.0,0,Moose_education_Ricardo,496,Moose,Education,14000.0,US/Eastern
+166,180.0,True,3,11,8,2.6666666667000003,0,0,25.0,0,Peacock_education_Forest,219,Peacock,Education,7178.0,US/Eastern
+1318,1460.0,True,47,53,6,0.1276595745,0,0,90.0,0,Peacock_education_Gilberto,626,Peacock,Education,23225.8,US/Eastern
+595,660.0,True,25,29,4,0.16,0,0,40.0,0,Peacock_education_Joshua,380,Peacock,Education,7054.0,US/Eastern
+572,640.0,True,15,16,1,0.0666666667,0,0,40.0,0,Peacock_education_Karyn,251,Peacock,Education,12016.4,US/Eastern
+106,120.0,True,3,15,12,4.0,0,0,15.0,0,Peacock_education_Robbie,309,Peacock,Education,5416.9,US/Eastern
+180,200.0,True,5,24,19,3.8,0,0,30.0,0,Peacock_lodging_Sergio,342,Peacock,Lodging/residential,10498.0,US/Eastern
+197,220.0,True,2,2,0,0.0,0,0,30.0,0,Peacock_office_Annie,41,Peacock,Office,6021.8,US/Eastern
+184,200.0,True,0,0,0,,0,0,40.0,0,Peacock_office_Effie,33,Peacock,Office,9723.9,US/Eastern
+241,270.0,True,0,0,0,,0,0,75.0,0,Rat_education_Brett,33,Rat,Education,10126.4,US/Eastern
+197,220.0,True,0,0,0,,0,0,85.0,0,Rat_education_Irma,34,Rat,Education,6763.3,US/Eastern
+191,210.0,True,0,0,0,,28,0,70.0,2,Rat_education_Lonnie,33,Rat,Education,4645.2,US/Eastern
+151,170.0,True,4,4,0,0.0,0,0,25.0,0,Rat_lodging_Christine,87,Rat,Lodging/residential,2906.3,US/Eastern
+419,470.0,True,16,24,8,0.5,0,0,65.0,0,Rat_office_Jacinta,332,Rat,Office,2835.9,US/Eastern
+130,140.0,True,0,0,0,,0,0,40.0,0,Rat_public_Allyson,35,Rat,Public services,1672.3,US/Eastern
+103,110.0,True,1,11,10,10.0,0,0,30.0,0,Rat_public_Toya,224,Rat,Public services,1557.8,US/Eastern
+253,280.0,True,8,63,55,6.875,0,0,65.0,0,Rat_public_Vickie,855,Rat,Public services,836.1,US/Eastern
