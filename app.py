@@ -95,6 +95,15 @@ def styled(fig: go.Figure, height: int = 400) -> go.Figure:
     return fig
 
 
+def image_uri(img: Image.Image) -> str:
+    import base64
+    import io
+
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="JPEG", quality=88)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def md(text: str) -> str:
     """Show $ amounts as money, not as the start of a math formula (Streamlit markdown reads $...$ as LaTeX)."""
     return text.replace("$", r"\$")
@@ -188,10 +197,11 @@ def replay_chart(site: ReplaySite, frame: pd.DataFrame, now: pd.Timestamp, t_now
 
 def speak(text: str) -> None:
     """Read the answer aloud with the browser's built-in voice (not a model call)."""
+    import streamlit.components.v1 as components  # a zero-height frame: works on every Streamlit version
+
     safe = json.dumps(text[:600])
-    st.html(f"<script>const u=new SpeechSynthesisUtterance({safe});u.rate=1.05;"
-            f"window.speechSynthesis.cancel();window.speechSynthesis.speak(u);</script>",
-            unsafe_allow_javascript=True)
+    components.html(f"<script>const s=window.parent.speechSynthesis||window.speechSynthesis;"
+                    f"const u=new SpeechSynthesisUtterance({safe});u.rate=1.05;s.cancel();s.speak(u);</script>", height=0)
 
 
 @st.cache_data
@@ -201,7 +211,7 @@ def live_available() -> bool:
 
 
 def replay_mode() -> bool:
-    return not live_available() or st.session_state.get("calls", "Replay") == "Replay"
+    return not live_available() or (st.session_state.get("calls") or "Replay") == "Replay"
 
 
 def current_site() -> ReplaySite:
@@ -315,7 +325,7 @@ def replay() -> None:
         site_kw = site.scenario.building_kw[:t_now] + site.results["headroom"].ev_kw[:t_now]
         m[3].metric("Grid-limit violations", int((site_kw > site.scenario.service_kw + 1e-6).sum()),
                     help="15-minute intervals this month so far with the site above its grid connection")
-        st.plotly_chart(replay_chart(site, day_frame(site, day), now, t_now, show_static), width="stretch", theme=None, config={"displayModeBar": False})
+        st.plotly_chart(replay_chart(site, day_frame(site, day), now, t_now, show_static), theme=None, config={"displayModeBar": False})
 
     day_view()
     st.html('<div class="hr-note"><b style="color:#818cf8">Indigo</b>: the building on its own, and its forecast ahead '
@@ -328,7 +338,7 @@ def operator() -> None:
     link_up = not st.session_state.get("link_down", False)
     hero("Ask the operator", "The site manager just asks. Meta's Muse Spark answers.",
          "It can only act through checked tools, never the chargers, and every number it says is traced to a tool "
-         "result. These are real recorded answers; switch on <b>Cut the site's internet</b> in the sidebar to see "
+         "result. These are real recorded answers; switch on <b>Cut the internet</b> in the sidebar to see "
          "Muse Glimmer answer from the site's own GPU.")
     st.html(f'<span class="hr-pill"><i style="background:{"#5eead4" if link_up else "#fb7185"}"></i>'
             + ("<b>Muse Spark</b>&nbsp;answering from the cloud" if link_up else
@@ -356,7 +366,7 @@ def operator() -> None:
             request = text
         else:
             ask_at = None
-        st.caption(f"Recorded conversation, question {asked + 1} of {len(DEMO_REQUESTS)}: real Muse Spark answers, replayed.")
+        st.caption(f"Recorded conversation, question {asked + 1} of {len(DEMO_REQUESTS)}: the models' real answers, replayed.")
     elif replay_mode() and asked < len(DEMO_REQUESTS):
         st.caption("The recorded conversation is on 21 June 2017: choose that day on *Watch it run*.")
     with st.expander("Speak instead"):
@@ -453,7 +463,7 @@ def camera() -> None:
             x0, y0, x1, y1 = bay.box
             crop = still.crop((max(0, x0 - 10), max(0, y0 - 40), x1 + 10, y1 + 10))
             with grid[k % 3].container(border=True):
-                st.image(crop, width="stretch")
+                st.html(f'<img src="{image_uri(crop)}" style="width:100%;border-radius:10px;border:1px solid #1e293b">')
                 st.markdown(f"**Bay {row['bay']}** · camera: {'a ' + cam['vehicle'] if cam['occupied'] else 'empty'}"
                             f"{', cable ' + cam['plugged_in'] if cam['occupied'] else ''}")
                 st.markdown(f"Charger reports **{row['charger_kw']:.1f} kW**")
@@ -533,7 +543,7 @@ def check_building() -> None:
                                marker_color=[COLORS["llf"], COLORS["headroom"]], text=[std, hr], textposition="outside"))
         styled(fig, 150).update_layout(margin=dict(l=10, r=48, t=6, b=6), showlegend=False)
         fig.update_yaxes(showticklabels=False)
-        st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False})
+        st.plotly_chart(fig, theme=None, config={"displayModeBar": False})
         usd = answer.get("added_demand_usd_per_month_at_standard_capacity") or {}
         if "llf" in usd and "headroom" in usd:
             st.markdown(md(f"At {std} chargers, charging adds **${usd['headroom']:,}/month** in demand charges with "
@@ -568,7 +578,7 @@ def context(h: dict) -> None:
         fig.add_trace(go.Scatter(x=[0, top], y=[0, top], mode="lines", hoverinfo="skip", line=dict(color="#475569", dash="dot")))
         styled(fig, 320).update_layout(showlegend=False, xaxis_title="Chargers: standard smart charging",
                                        yaxis_title="Chargers: Headroom")
-        st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False})
+        st.plotly_chart(fig, theme=None, config={"displayModeBar": False})
         st.caption("Each dot is one real metered building (BDG2), screened on Jul–Aug 2017. Above the dotted line, "
                    "Headroom fits more. Buildings whose peak is brief gained a median +82%; with a tighter connection "
                    "(peak ÷ 0.9) the median gain rises to +31%. Method: scripts/portfolio_study.py")
@@ -584,8 +594,8 @@ def verified() -> None:
     site = current_site()
     with st.container(border=True):
         st.markdown("**Reading the utility's tariff**")
-        doc = st.segmented_control("Tariff", list(TARIFF_NAMES), default="cpau-e-4-tou-2026", required=True,
-                                   format_func=TARIFF_NAMES.get)
+        doc = st.segmented_control("Tariff", list(TARIFF_NAMES), default="cpau-e-4-tou-2026",
+                                   format_func=TARIFF_NAMES.get) or "cpau-e-4-tou-2026"
         if st.button("Read and verify", type="primary", icon=":material/fact_check:"):
             try:
                 with st.spinner("Muse Spark is reading the tariff…"):
@@ -673,7 +683,7 @@ def proof() -> None:
                                          mode="lines+markers", line=dict(color=COLORS[name], width=2.6)))
             styled(fig, 340).update_layout(yaxis_title="Share of months every driver was served", xaxis_title="Chargers",
                                            yaxis_tickformat=".0%")
-            st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False})
+            st.plotly_chart(fig, theme=None, config={"displayModeBar": False})
             if "chargers_headroom" in h:
                 st.caption(f"Hosting capacity on the same 1,000 kW connection: {h['chargers_headroom']} chargers with "
                            f"Headroom vs {h['chargers_standard']} with standard smart charging. scripts/capacity_study.py")
@@ -734,11 +744,11 @@ page = st.navigation({"": [PAGES["start"]],
                       "Trust": [PAGES["verified"], PAGES["proof"]]})
 st.session_state.setdefault("day", "2017-06-21")
 with st.sidebar:
-    st.toggle("Cut the site's internet", key="link_down",
+    st.toggle("Cut the internet", key="link_down",
               help="The cloud model becomes unreachable and the operator switches to Muse Glimmer on the site's "
                    "own GPU. Charging never depends on either model.")
     if live_available():
-        st.segmented_control("Model calls", ["Replay", "Live"], default="Replay", key="calls", required=True,
+        st.segmented_control("Model calls", ["Replay", "Live"], default="Replay", key="calls",
                              help="Replay uses the recorded model responses; Live calls the models (billed)")
     else:
         st.caption("Replaying real recorded Muse Spark answers.")

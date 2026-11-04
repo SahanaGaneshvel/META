@@ -75,7 +75,9 @@ def video_part(path: Path) -> dict:
 
 def observe(clip: Path, still: Path, bays: list[Bay], client: ModelClient | None = None) -> BayReport:
     client = client or ModelClient("spark")
-    marked = annotate(still, bays, still.with_suffix(".bays.png"))
+    marked = still.with_suffix(".bays.png")
+    if not marked.exists():  # reuse the committed still: redrawing it with another Pillow changes
+        annotate(still, bays, marked)  # its bytes, and with them the recorded request
     response = client.chat(
         [{"role": "system", "content": SYSTEM},
          {"role": "user", "content": [

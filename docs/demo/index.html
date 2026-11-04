@@ -194,14 +194,7 @@
   .tile .k { color:var(--muted); font-size:13px; margin-top:4px; line-height:1.45; }
 
 
-  /* how a site uses it: the numbers in the you-give / you-get table */
-function useFill(D) {
-  const R = D.results, v = { with: R.chargers_headroom, without: R.chargers_standard, served: Math.round(R.served * 100) + "%",
-    violations: R.violations, saving: Math.round((1 - R.headroom_usd / R.standard_usd) * 100) + "%" };
-  document.querySelectorAll("[data-k]").forEach(e => e.textContent = v[e.dataset.k]);
-}
-
-/* 0 · in plain words */
+  /* 0 · in plain words */
   .story { display:grid; grid-template-columns:1.2fr 1fr; gap:0; overflow:hidden; }
   .story .stage { padding:26px; border-right:1px solid var(--line); min-height:330px; display:flex; align-items:center; }
   .story .stage svg { width:100%; height:auto; }
@@ -283,7 +276,7 @@ function useFill(D) {
   </section>
 
   <section class="part" id="use" data-chapter="How a site uses it" style="padding-top:20px">
-    <div class="kicker reveal">How a site uses it</div>
+    <div class="kicker reveal">Chapter 01 · How a site uses it</div>
     <h2 class="reveal t1">You give it your meter data. It tells you how many chargers fit, then runs them.</h2>
     <div class="panel io reveal t2">
       <div><h4>You give</h4><ul>
@@ -302,14 +295,14 @@ function useFill(D) {
         <li><b>A lower bill</b><small><span data-k="saving"></span> lower demand charges than standard smart charging</small></li>
         <li><b>Checked answers</b><small>"Yes: 240 kWh needed, 409 kWh deliverable without a new peak."</small></li></ul></div>
     </div>
-    <div class="panel example reveal t3"><span class="tag2">Real example</span>A UC Berkeley building's real meter data, Palo Alto's
+    <div class="panel example reveal t3"><span class="tag2">Real example</span><span>A UC Berkeley building's real meter data, Palo Alto's
       tariff and a 1,000 kW connection, with real Palo Alto drivers: <b style="color:var(--ink)"><span data-k="with"></span> chargers fit instead of <span data-k="without"></span></b>,
-      every driver gets <span data-k="served"></span> of their energy, and demand charges fall <span data-k="saving"></span>.</div>
+      every driver gets <span data-k="served"></span> of their energy, and demand charges fall <span data-k="saving"></span>.</span></div>
   </section>
 
   <section class="part" id="plain" data-chapter="The idea">
     <div class="part-head reveal">
-      <div><div class="eyebrow">Chapter 01 · The idea in one minute</div>
+      <div><div class="eyebrow">Chapter 02 · The idea in one minute</div>
         <h2>Six pictures, no jargon.</h2></div>
       <p>Everything else on this page builds on these six steps. They play on their own; click any bar to jump.</p>
     </div>
@@ -324,7 +317,7 @@ function useFill(D) {
   <!-- 1 -->
   <section class="part" id="problem" data-chapter="The problem">
     <div class="part-head">
-      <div><div class="eyebrow">Chapter 02 · The problem</div>
+      <div><div class="eyebrow">Chapter 03 · The problem</div>
         <h2>Chargers that can't see the building pile onto its peak.</h2></div>
       <p>Standard smart charging splits a fixed charger budget between the cars plugged in. It never sees the building, so
         on a hot evening it adds its load right on top of the building's peak, the 15 minutes the utility bills.</p>
@@ -347,7 +340,7 @@ function useFill(D) {
   <!-- 2 -->
   <section class="part" id="how" data-chapter="How it decides">
     <div class="part-head">
-      <div><div class="eyebrow">Chapter 03 · How Headroom decides</div>
+      <div><div class="eyebrow">Chapter 04 · How Headroom decides</div>
         <h2>Every 15 minutes: see, plan, guarantee, send.</h2></div>
       <p>Press play. Headroom forecasts the building, charges in the room under the peak the month has already paid for, checks
         the grid limit, and sends each charger its power. The bill counters run for the same cars under both approaches.</p>
@@ -392,7 +385,7 @@ function useFill(D) {
   <!-- 3 -->
   <section class="part" id="operator" data-chapter="The AI operator">
     <div class="part-head">
-      <div><div class="eyebrow">Chapter 04 · The AI operator</div>
+      <div><div class="eyebrow">Chapter 05 · The AI operator</div>
         <h2>The site manager just asks. Meta's Muse Spark answers.</h2></div>
       <p>Muse Spark can only act through checked tools. It never touches the chargers, and every number it says is traced back
         to a tool result. These are its real recorded answers. Cut the internet and Meta's open-weight Muse Glimmer answers on site.</p>
@@ -407,7 +400,7 @@ function useFill(D) {
   <!-- 4 -->
   <section class="part" id="proof" data-chapter="The proof">
     <div class="part-head">
-      <div><div class="eyebrow">Chapter 05 · The proof</div>
+      <div><div class="eyebrow">Chapter 06 · The proof</div>
         <h2 id="proofTitle">–</h2></div>
       <p>Six held-out summer months that nothing was tuned on, three resampled fleets each, real data only. Then the same check
         on dozens of other real buildings, a second utility's tariff, and the protocol real chargers speak.</p>
@@ -427,7 +420,7 @@ function useFill(D) {
 
   <section class="part" id="world" data-chapter="In the real world">
     <div class="part-head reveal">
-      <div><div class="eyebrow">Chapter 06 · In the real world</div>
+      <div><div class="eyebrow">Chapter 07 · In the real world</div>
         <h2>A small box on site, the chargers a site already has, and an AI to talk to.</h2></div>
       <p>Headroom runs on a small computer next to the building's meter. It reads the meter, plans, and sends each charger its
         limit over OCPP, the open protocol commercial chargers already speak. The AI sits beside the control loop, never inside it.</p>
@@ -503,7 +496,7 @@ function useFill(D) {
 
   <section class="part" id="built" data-chapter="What we built">
     <div class="part-head reveal">
-      <div><div class="eyebrow">Chapter 07 · What we built</div>
+      <div><div class="eyebrow">Chapter 08 · What we built</div>
         <h2>Twelve pieces, each with its evidence.</h2></div>
       <p>All built during the hackathon. Every number on this page is produced by a script in the repository from real data,
         and anyone can re-run it.</p>
@@ -561,6 +554,13 @@ function dayFrame(svg, D, { y0 = 450, y1 = 1050, h = 340, left = 46, bottom = 30
 function line(svg, pts, attrs) { return el("path", { d: "M" + pts.map(p => p.join(",")).join(" L"), fill: "none", ...attrs }, svg); }
 function area(svg, top, bot, attrs) {
   return el("path", { d: "M" + top.map(p => p.join(",")).join(" L") + " L" + bot.slice().reverse().map(p => p.join(",")).join(" L") + " Z", ...attrs }, svg);
+}
+
+/* how a site uses it: the numbers in the you-give / you-get table */
+function useFill(D) {
+  const R = D.results, v = { with: R.chargers_headroom, without: R.chargers_standard, served: Math.round(R.served * 100) + "%",
+    violations: R.violations, saving: Math.round((1 - R.headroom_usd / R.standard_usd) * 100) + "%" };
+  document.querySelectorAll("[data-k]").forEach(e => e.textContent = v[e.dataset.k]);
 }
 
 /* 0 · in plain words: six steps, each one picture and one sentence, drawn from the same real day */
