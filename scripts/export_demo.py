@@ -17,13 +17,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from headroom.agent.operator import DEMO_REQUESTS, SYSTEM, run  # noqa: E402
+from headroom.agent.operator import DEMO_REQUESTS, SYSTEM, VOICE_REQUEST_AT, run  # noqa: E402
 from headroom.agent.site import TARIFF_DOCS, ReplaySite  # noqa: E402
 from headroom.capacity import hosting_capacity  # noqa: E402
 from headroom.config import DATA, LOCAL_TZ, ROOT  # noqa: E402
 from headroom.control.headroom_mpc import HeadroomMPC  # noqa: E402
 from headroom.forecast.precomputed import PrecomputedForecaster  # noqa: E402
-from headroom.meta.client import FailoverClient  # noqa: E402
+from headroom.meta.client import FailoverClient, ModelClient, transcribe  # noqa: E402
 from headroom.sim.engine import simulate  # noqa: E402
 from headroom.tariff import monthly_bills  # noqa: E402
 
@@ -103,6 +103,22 @@ def conversation(link_up: bool) -> list[dict]:
     return turns
 
 
+def voice() -> dict:
+    """The recorded spoken request (scripts/record_voice.py): transcript, then Muse Spark's answer."""
+    import shutil
+
+    wav = DATA / "voice" / "question.wav"
+    text = transcribe(wav.read_bytes(), mode="replay")
+    site = ReplaySite(month="2017-06", n_ports=24).fork()
+    site.now_local = VOICE_REQUEST_AT
+    turn = run(site, text, history=[{"role": "system", "content": SYSTEM}], client=ModelClient("spark", mode="replay"))
+    shutil.copy(wav, OUT.parent / "question.wav")
+    return {"time": VOICE_REQUEST_AT[-5:], "question": text, "answer": turn.answer, "model": "Muse Spark (cloud)",
+            "unsupported": turn.unsupported,
+            "tools": [{"name": s.tool, "ok": s.ok, "arguments": json.loads(s.arguments or "{}"), "result": s.result}
+                      for s in turn.steps if s.kind == "tool"]}
+
+
 def results() -> dict:
     final = pd.read_csv(R / "final_summary.csv", index_col="controller")
     b19 = pd.read_csv(R / "final_summary_pge-b-19_2026.csv", index_col="controller")
@@ -145,7 +161,7 @@ def main() -> None:
     site = ReplaySite(month="2017-06", n_ports=24)
     steps, meta = day_steps(site)
     data = {"day": DAY, "meta": meta, "steps": steps, "spark": conversation(True), "glimmer": conversation(False),
-            "results": results()}
+            "voice": voice(), "results": results()}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, separators=(",", ":"), default=str), encoding="utf-8")
     flagged = [t["question"] for t in data["spark"] + data["glimmer"] if t["unsupported"]]

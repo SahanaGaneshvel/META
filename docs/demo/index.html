@@ -158,6 +158,12 @@
   .qs button:hover { border-color:rgba(148,163,184,.35); }
   .qs button.on { border-color:rgba(94,234,212,.45); color:var(--ink); background:rgba(45,212,191,.06); }
   .qs button small { display:block; color:var(--muted); font-size:12px; margin-bottom:2px; }
+  .voicebtn { display:flex; align-items:center; gap:10px; }
+  .voicebtn .mic { width:30px; height:30px; border-radius:99px; display:grid; place-items:center; flex:none;
+                   background:rgba(45,212,191,.12); border:1px solid rgba(94,234,212,.45); color:var(--accent); font-size:14px; }
+  .wavebar { display:flex; align-items:center; gap:2px; height:44px; margin:8px 0 4px; }
+  .wavebar b { flex:1; border-radius:2px; background:rgba(148,163,184,.25); min-height:2px; transition:background .1s; }
+  .wavebar b.on { background:var(--accent); }
   .toggle { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; border:1px dashed var(--line);
             color:var(--muted); font-size:14px; cursor:pointer; margin-top:6px; user-select:none; }
   .toggle .sw { width:34px; height:20px; border-radius:99px; background:rgba(148,163,184,.25); position:relative; transition:background .2s; flex:none; }
@@ -388,7 +394,7 @@
       <div><div class="eyebrow">Chapter 05 · The AI operator</div>
         <h2>The site manager just asks. Meta's Muse Spark answers.</h2></div>
       <p>Muse Spark can only act through checked tools. It never touches the chargers, and every number it says is traced back
-        to a tool result. These are its real recorded answers. Cut the internet and Meta's open-weight Muse Glimmer answers on site.</p>
+        to a tool result. These are its real recorded answers. Ask by voice, then cut the internet: Meta's open-weight Muse Glimmer answers on site.</p>
     </div>
     <div class="ops">
       <div class="qs" id="qs"></div>
@@ -747,6 +753,10 @@ function operator(D) {
     b.onclick = () => show(i);
     qs.appendChild(b);
   });
+  const vb = document.createElement("button");
+  vb.className = "voicebtn"; vb.innerHTML = '<span class="mic">🎙</span><span><small>6:00 pm · spoken</small>Play the voice request</span>';
+  vb.onclick = () => speakDemo();
+  qs.appendChild(vb);
   const tg = document.createElement("div");
   tg.className = "toggle"; tg.innerHTML = '<span class="sw"></span>Cut the site\'s internet';
   tg.onclick = () => { offline = !offline; tg.classList.toggle("on", offline); show(current); };
@@ -762,9 +772,45 @@ function operator(D) {
     }
     return html + (inList ? "</ul>" : "");
   }
+  function speakDemo() {
+    [...qs.querySelectorAll("button")].forEach(b => b.classList.toggle("on", b === vb));
+    if (offline) {
+      chat.innerHTML = `<div class="who"><span class="dotlive" style="background:var(--coral)"></span>Internet cut</div>` +
+        `<div class="msg a"><p>Voice needs the internet: Muse Voice Transcribe runs in the cloud. Tap a question instead and ` +
+        `Muse Glimmer answers on site. Charging carries on unchanged.</p></div>`;
+      return;
+    }
+    const V = D.voice, audio = new Audio("question.wav");
+    chat.innerHTML = `<div class="who"><span class="dotlive"></span><b style='color:var(--ink)'>Muse Voice Transcribe</b><span>&nbsp;listening</span></div>` +
+      `<div class="wavebar" id="wb">${"<b></b>".repeat(80)}</div><div class="msg q" id="vq" style="min-height:1.6em"></div>`;
+    const bars = [...chat.querySelectorAll("#wb b")];
+    bars.forEach((b, k) => b.style.height = (6 + 34 * Math.abs(Math.sin(k * 1.7) * Math.cos(k * .31))) + "px");
+    const words = V.question.split(" ");
+    let finished = false;
+    const tick = () => {
+      const p = audio.duration ? audio.currentTime / audio.duration : 0;
+      bars.forEach((b, k) => b.classList.toggle("on", k / bars.length < p));
+      const q = $("#vq"); if (q) q.textContent = words.slice(0, Math.ceil(p * words.length)).join(" ");
+      if (!finished && !audio.ended) requestAnimationFrame(tick);
+    };
+    const answer = () => {
+      if (finished) return; finished = true;
+      const q = $("#vq"); if (q) q.textContent = "🎤 " + V.question;
+      const lab = chat.querySelector(".who"); if (lab) lab.lastChild.textContent = " heard";
+      bars.forEach(b => b.classList.add("on"));
+      const tools = V.tools.map(t => `<div class="tool"><div class="name">${t.ok ? "✓" : "✗"} ${esc(t.name)}(${esc(JSON.stringify(t.arguments))})</div>` +
+        `<pre>${esc(JSON.stringify(t.result, null, 1)).slice(0, 2400)}</pre></div>`).join("");
+      const ok = !V.unsupported.length;
+      chat.insertAdjacentHTML("beforeend", `<div class="who" style="margin-top:12px"><span class="dotlive"></span><b style='color:var(--ink)'>Muse Spark</b>&nbsp;answering from the cloud</div>` +
+        `<div class="msg a">${answerHtml(V.answer)}<div class="check ${ok ? "" : "warn"}">${ok ? "✓ Every number in this answer is traced to a tool result" : "Not found in any tool result: " + esc(V.unsupported.join(", "))}</div>` +
+        `<details class="tools"><summary>How it got this: ${V.tools.length} tool call${V.tools.length === 1 ? "" : "s"}</summary>${tools}</details></div>`);
+    };
+    audio.onended = () => setTimeout(answer, 400);
+    audio.play().then(() => requestAnimationFrame(tick)).catch(() => answer());  // no sound allowed: show it all at once
+  }
   function show(i) {
     current = i;
-    [...qs.querySelectorAll("button")].forEach((b, n) => b.classList.toggle("on", n === i));
+    [...qs.querySelectorAll("button")].forEach((b, n) => b.classList.toggle("on", n === i && b !== vb));
     const turn = (offline ? D.glimmer : D.spark)[i];
     chat.innerHTML = `<div class="who"><span class="dotlive" style="background:${offline ? "var(--coral)" : "var(--accent)"}"></span>` +
       (offline ? "Internet cut · <b style='color:var(--ink)'>Muse Glimmer</b> answering on the site's own GPU" :
