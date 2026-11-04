@@ -4,7 +4,7 @@
 # script files under load. The app also runs on 1.66 (requirements.lock.txt).
 streamlit==1.50.0
 plotly==7.1.0
-pandas==3.1.0
+pandas==2.3.3  # streamlit 1.50 requires pandas<3
 numpy==2.5.4
 scipy==1.18.1
 highspy==1.15.1

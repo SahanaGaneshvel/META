@@ -142,7 +142,11 @@ class ReplaySite:
     def set_requirement(self, args: SetRequirement) -> dict:
         start, stop = self.step_of(args.plug_in_local), self.step_of(args.ready_by_local)
         if stop <= start:
-            return {"accepted": False, "reason": "deadline is not after plug-in"}
+            # the usual slip is an overnight window with both times on the same date: say how to fix it
+            nxt = (pd.Timestamp(args.ready_by_local) + pd.Timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")
+            return {"accepted": False, "reason": f"the deadline {args.ready_by_local} is not after the plug-in "
+                    f"{args.plug_in_local}; for an overnight window the deadline is the next morning, {nxt}: "
+                    "call set_requirement again with that"}
         need = args.vehicles * args.kwh_per_vehicle
         q = self.forecast[start, : min(stop - start, self.forecast.shape[1])]
         steps = len(q)

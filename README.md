@@ -147,7 +147,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 - **Start** explains what you give and what you get; **Watch it run** plays the real heat-wave day decision by decision; **Ask the operator** replays the recorded Muse Spark conversation; **What the camera sees** shows Muse Spark checking the bays step by step; **Check your building** answers for a sample building (or your own meter export); **How the AI is checked** and **Proof and data** show the verifiers and every result.
-- Sidebar: **Cut the site's internet** switches the operator to Muse Glimmer.
+- On **Ask the operator**: **Send this voice request** plays a recorded spoken request through Muse Voice Transcribe and Muse Spark (the audio, [`data/voice/question.wav`](data/voice/question.wav), was voiced with a built-in system synthesiser, not a model; [`scripts/record_voice.py`](scripts/record_voice.py) recorded both calls). **Cut the internet** turns the cloud models off and Muse Glimmer answers on site.
 - **Model calls: Live** calls the models.
   - It appears only when `MODEL_API_KEY` (Meta Model API) is set in `.env`; see `.env.example`. Without a key, the app replays the recorded answers.
   - Keys live only in `.env`, which is never committed. Don't set a key on a public deployment.

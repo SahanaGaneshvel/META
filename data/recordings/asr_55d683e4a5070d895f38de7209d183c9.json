@@ -1,0 +1,14 @@
+{
+ "request": {
+  "model": "muse-voice-transcribe-1.0",
+  "audio_seconds": 9.78
+ },
+ "response": {
+  "sessionId": "voyager/transcribe/5F18E8A87F8B4CF9B6D4719E1121F0ED",
+  "transcript": "Six fleet vans plug in at seven tonight. Each one needs 40 kilowatt hours by six in the morning. Can we do it?",
+  "audioDurationMs": 9840,
+  "turns": []
+ },
+ "seconds": 3.4,
+ "recorded_at": "2026-11-04T12:27:41"
+}

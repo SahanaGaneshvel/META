@@ -33,6 +33,8 @@ DEMO_REQUESTS = [  # (site time, request): recorded by scripts/record_demo.py, i
     ("2017-06-21T18:00", "Would Headroom work at our other buildings too?"),
 ]
 
+VOICE_REQUEST_AT = "2017-06-21T18:00"  # site time of the spoken request (scripts/record_voice.py)
+
 _NUMBER = re.compile(r"(?<![\w.:])\d[\d,]*(?:\.\d+)?")
 _TIMES = re.compile(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?|\d{1,2}:\d{2}"  # dates, clock times, "4-9pm", "6 am"
                     r"|\d{1,2}\s*(?:-|\u2013|to)\s*\d{1,2}\s*(?:am|pm|h)\b|\d{1,2}\s*(?:am|pm|h)\b"

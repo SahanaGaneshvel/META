@@ -27,6 +27,7 @@ from headroom.tariff import load_gold
 
 st.set_page_config(page_title="Headroom", page_icon=str(ROOT / "assets" / "icon.png"), layout="wide")
 RESULTS = DATA / "results"
+VOICE_WAV = DATA / "voice" / "question.wav"  # the recorded spoken request (scripts/record_voice.py)
 NAMES = {"headroom": "Headroom", "llf": "Standard smart charging", "static_cap": "Static cap"}
 COLORS = {"headroom": "#5eead4", "llf": "#f59e0b", "static_cap": "#94a3b8", "building": "#818cf8"}
 TARIFF_NAMES = {"cpau-e-4-tou-2026": "Palo Alto E-4 TOU", "cpau-e-7-tou-2026": "Palo Alto E-7 TOU",
@@ -70,7 +71,19 @@ STYLE = """<style>
   .hr-chip.charging { background:rgba(45,212,191,.12); color:#5eead4; border:1px solid rgba(94,234,212,.4); }
   .hr-chip.free { background:rgba(148,163,184,.10); color:#cbd3e1; border:1px solid #1e293b; }
   .hr-chip.check { background:rgba(251,191,36,.12); color:#fbbf24; border:1px solid rgba(251,191,36,.4); }
-  @media (max-width:900px) { .hr-io, .hr-steps { grid-template-columns:1fr; } }
+  .hr-models { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .hr-model { border:1px solid #1e293b; border-radius:14px; background:#0e1626; padding:13px 15px; transition:opacity .35s, border-color .35s; }
+  .hr-model .k { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; color:#64748b; letter-spacing:.04em; }
+  .hr-model .t { font-size:15.5px; font-weight:600; color:#e8ecf4; margin:3px 0 2px; }
+  .hr-model .d { font-size:12.5px; color:#8b96aa; line-height:1.45; }
+  .hr-model .s { display:inline-flex; align-items:center; gap:6px; margin-top:9px; font-size:12px; font-weight:500; }
+  .hr-model .s i { width:7px; height:7px; border-radius:99px; display:inline-block; background:currentColor; }
+  .hr-model.up .s { color:#5eead4; } .hr-model.down { opacity:.45; } .hr-model.down .s { color:#fb7185; }
+  .hr-model.standby .s { color:#94a3b8; } .hr-model.live { border-color:rgba(94,234,212,.55); box-shadow:0 0 0 1px rgba(94,234,212,.15) inset; }
+  .hr-model.live .s { color:#5eead4; } .hr-model.live .s i { animation:hrPulse 1.4s ease-in-out infinite; }
+  @keyframes hrPulse { 50% { opacity:.25; } }
+  .hr-kicker { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; color:#5eead4; letter-spacing:.06em; }
+  @media (max-width:900px) { .hr-io, .hr-steps, .hr-models { grid-template-columns:1fr; } }
 </style>"""
 
 
@@ -334,15 +347,74 @@ def replay() -> None:
             'which fills the quiet hours and stays under the peak the month has already paid for.</div>')
 
 
+def model_strip(link_up: bool) -> str:
+    """The three Meta models behind the operator, and which of them can answer right now."""
+    def card(key: str, title: str, what: str, state: str, label: str) -> str:
+        return (f'<div class="hr-model {state}"><div class="k">{key}</div><div class="t">{title}</div>'
+                f'<div class="d">{what}</div><div class="s"><i></i>{label}</div></div>')
+    cut = "unreachable: internet cut"
+    return ('<div class="hr-models hr-rise">'
+            + card("muse-spark-1.3 · cloud", "Muse Spark", "Answers, and acts only through checked tools.",
+                   "live" if link_up else "down", "answering" if link_up else cut)
+            + card("muse-voice-transcribe-1.0 · cloud", "Muse Voice Transcribe", "Turns a spoken request into text.",
+                   "up" if link_up else "down", "reachable" if link_up else cut)
+            + card("muse-glimmer · on site", "Muse Glimmer", "Runs on the site's own GPU; takes over when the link drops.",
+                   "standby" if link_up else "live", "standby" if link_up else "answering on site")
+            + "</div>")
+
+
+def voice_request(client: FailoverClient, link_up: bool, shown: list[dict]) -> None:
+    """The recorded spoken request, run the way a live one is: transcribed, then answered through the tools."""
+    from headroom.agent.operator import VOICE_REQUEST_AT
+
+    if not link_up:
+        shown.append({"role": "assistant", "text": "Voice needs the internet: Muse Voice Transcribe runs in the cloud. "
+                      "Type or tap a question instead and Muse Glimmer answers on site. Charging carries on unchanged."})
+        return
+    with st.status("Muse Voice Transcribe is listening…", expanded=True) as status:
+        text = transcribe(VOICE_WAV.read_bytes(), mode="replay" if replay_mode() else "auto")
+        time.sleep(0.6)
+        st.write(f"🎤 Heard: “{text}”")
+        status.update(label="Muse Spark is checking with the tools…")
+        site = load_site("2017-06", 24).fork()  # the request was recorded on a fresh site at 6 pm
+        site.now_local = VOICE_REQUEST_AT
+        turn = run(site, text, history=[{"role": "system", "content": SYSTEM}], client=client)
+        for step in turn.steps:
+            if step.kind == "tool":
+                time.sleep(0.45)
+                st.write(f"{'✅' if step.ok else '❌'} `{step.tool}`")
+        status.update(label="Answered", state="complete", expanded=False)
+    check = ("every number traced to a tool result ✅" if not turn.unsupported else
+             "⚠️ not found in any tool result: " + ", ".join(turn.unsupported))
+    shown.append({"role": "user", "text": "🎤 " + text, "note": "Spoken, then transcribed by Muse Voice Transcribe", "voice": True})
+    shown.append({"role": "assistant", "text": turn.answer, "note": f"Muse Spark (cloud) · {check}",
+                  "steps": [{"tool": s.tool, "result": s.result, "ok": s.ok} for s in turn.steps if s.kind == "tool"]})
+    speak(turn.answer)
+
+
 def operator() -> None:
-    link_up = not st.session_state.get("link_down", False)
     hero("Ask the operator", "The site manager just asks. Meta's Muse Spark answers.",
          "It can only act through checked tools, never the chargers, and every number it says is traced to a tool "
-         "result. These are real recorded answers; switch on <b>Cut the internet</b> in the sidebar to see "
-         "Muse Glimmer answer from the site's own GPU.")
-    st.html(f'<span class="hr-pill"><i style="background:{"#5eead4" if link_up else "#fb7185"}"></i>'
-            + ("<b>Muse Spark</b>&nbsp;answering from the cloud" if link_up else
-               "Internet cut · <b>Muse Glimmer</b>&nbsp;answering on site") + "</span>")
+         "result. Ask by tapping, typing or speaking, then cut the internet and watch Muse Glimmer take over on site.")
+    left, right = st.columns([5, 1.3], vertical_alignment="center")
+    with right:
+        down = st.toggle("Cut the internet", value=st.session_state.get("link_down", False), key="link_toggle",
+                         help="The cloud models become unreachable and Muse Glimmer answers from the site's own GPU. "
+                              "Charging never depends on any model.")
+    if replay_mode() and down != st.session_state.get("link_down", False):
+        # each model's recorded conversation replays from its own start: a mixed history has no recording
+        st.session_state["history"], st.session_state["shown"] = [{"role": "system", "content": SYSTEM}], []
+        st.session_state["model_switched"] = True
+    st.session_state["link_down"] = down
+    link_up = not down
+    with left:
+        st.html(model_strip(link_up))
+    st.html('<div class="hr-note" style="margin:.35rem 0 1rem">The planner and the safety layer run on site and never '
+            'wait for a model: with every model gone, the chargers keep their limits.</div>')
+    if st.session_state.get("model_switched") and not st.session_state.get("shown"):
+        st.info(("Internet cut: Muse Glimmer now answers on site. " if down else "Back online: Muse Spark answers again. ")
+                + "The recorded conversation starts over so each model's real answers replay in order.",
+                icon=":material/wifi_off:" if down else ":material/wifi:")
     site = current_site()
     client = FailoverClient("spark", "glimmer", mode="replay" if replay_mode() else "auto", link_up=link_up)
     history = st.session_state.setdefault("history", [{"role": "system", "content": SYSTEM}])
@@ -358,7 +430,7 @@ def operator() -> None:
                         st.markdown(f"{'✅' if step['ok'] else '❌ rejected'} `{step['tool']}`")
                         st.json(step["result"], expanded=False)
 
-    asked = sum(m["role"] == "user" for m in shown)
+    asked = sum(m["role"] == "user" and not m.get("voice") for m in shown)  # the recorded questions asked
     request, ask_at = None, None
     if replay_mode() and asked < len(DEMO_REQUESTS) and st.session_state.get("day", "2017-06-21") == "2017-06-21":
         ask_at, text = DEMO_REQUESTS[asked]
@@ -369,8 +441,25 @@ def operator() -> None:
         st.caption(f"Recorded conversation, question {asked + 1} of {len(DEMO_REQUESTS)}: the models' real answers, replayed.")
     elif replay_mode() and asked < len(DEMO_REQUESTS):
         st.caption("The recorded conversation is on 21 June 2017: choose that day on *Watch it run*.")
-    with st.expander("Speak instead"):
-        voice = st.audio_input("Record a request", help="Muse Voice Transcribe turns it into text; Muse Spark answers")
+    with st.container(border=True):
+        st.html('<div class="hr-kicker">ASK BY VOICE</div>')
+        a, b = st.columns([3, 1.4], vertical_alignment="center")
+        with a:
+            st.audio(str(VOICE_WAV))
+            st.caption("A recorded spoken request, voiced by a built-in system synthesiser. Muse Voice Transcribe "
+                       "turns it into text, then Muse Spark answers it.")
+        with b:
+            send_voice = st.button("Send this voice request", icon=":material/mic:", use_container_width=True)
+        voice = None
+        if not replay_mode():
+            voice = st.audio_input("Or record your own", help="Muse Voice Transcribe turns it into text; Muse Spark answers")
+    if send_voice:
+        try:
+            voice_request(client, link_up, shown)
+        except RecordingMissing as exc:
+            st.warning(str(exc))
+        else:
+            st.rerun()
     if shown and st.button("Start over", icon=":material/restart_alt:"):
         st.session_state["history"], st.session_state["shown"] = [{"role": "system", "content": SYSTEM}], []
         for key in [k for k in st.session_state if k.startswith("site_")]:
@@ -400,7 +489,8 @@ def operator() -> None:
         check = ("every number traced to a tool result ✅" if not turn.unsupported else
                  "⚠️ not found in any tool result: " + ", ".join(turn.unsupported))
         shown.append({"role": "assistant", "text": turn.answer, "note": f"{who} · {check}", "steps": steps})
-        speak(turn.answer)
+        if spoken:  # voice in, voice out: typed and tapped questions stay silent
+            speak(turn.answer)
     except RecordingMissing:
         shown.append({"role": "assistant", "text": "There's no recorded answer for that question: the recorded "
                       "conversation is the question buttons above. " + (
@@ -744,13 +834,12 @@ page = st.navigation({"": [PAGES["start"]],
                       "Trust": [PAGES["verified"], PAGES["proof"]]})
 st.session_state.setdefault("day", "2017-06-21")
 with st.sidebar:
-    st.toggle("Cut the internet", key="link_down",
-              help="The cloud model becomes unreachable and the operator switches to Muse Glimmer on the site's "
-                   "own GPU. Charging never depends on either model.")
+    if st.session_state.get("link_toggle", st.session_state.get("link_down")):  # the toggle's value this run
+        st.html('<span class="hr-pill"><i style="background:#fb7185"></i>Internet cut · Muse Glimmer on site</span>')
     if live_available():
         st.segmented_control("Model calls", ["Replay", "Live"], default="Replay", key="calls",
                              help="Replay uses the recorded model responses; Live calls the models (billed)")
     else:
-        st.caption("Replaying real recorded Muse Spark answers.")
+        st.caption("Replaying the models' real recorded answers.")
     st.caption("Built on Meta's Muse Spark 1.3 · Muse Voice Transcribe · Muse Glimmer")
 page.run()
