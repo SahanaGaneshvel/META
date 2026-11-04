@@ -31,8 +31,8 @@
   .eyebrow { display:inline-block; font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent);
              border:1px solid rgba(94,234,212,.25); border-radius:999px; padding:6px 14px; }
   .hero h1 { font-size:clamp(32px,5.2vw,54px); line-height:1.1; font-weight:600; letter-spacing:-.025em; margin-top:22px; }
-  .hero h1 span { background:linear-gradient(90deg, var(--accent), var(--building)); -webkit-background-clip:text;
-                  background-clip:text; color:transparent; }
+  .hero h1 .grad .w { background:linear-gradient(90deg, var(--accent), var(--building)); -webkit-background-clip:text;
+                       background-clip:text; color:transparent; }
   .hero p { color:var(--muted); font-size:clamp(16px,1.9vw,18px); max-width:620px; margin:18px auto 0; }
   .cta { margin-top:30px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
   .btn { padding:11px 22px; border-radius:10px; font-weight:500; font-size:15px; border:1px solid var(--line);
@@ -97,6 +97,77 @@
   .models i { font-style:normal; margin:0 10px; opacity:.4; }
   footer { color:var(--muted); font-size:12.5px; text-align:center; padding:28px 0 44px; margin-top:44px; border-top:1px solid var(--line); line-height:1.7; }
 
+  /* headline words rise in turn */
+  .words .w { display:inline-block; opacity:0; transform:translateY(.45em); animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards; }
+
+  /* the hero signal: the real building's day drawing itself under the grid limit, then charging filling the room */
+  .signal { position:relative; margin:46px auto 0; max-width:880px; height:150px; }
+  .signal svg { width:100%; height:100%; display:block; overflow:visible; }
+  .signal .bl { fill:none; stroke:var(--building); stroke-width:1.6; stroke-dasharray:2000; stroke-dashoffset:2000;
+                animation:dash 3.2s cubic-bezier(.4,.1,.2,1) .7s forwards; vector-effect:non-scaling-stroke; }
+  .signal .ev { fill:url(#gEv); opacity:0; animation:evin 1.6s ease 3.4s forwards; }
+  .signal .lim { stroke:var(--coral); stroke-dasharray:4 6; opacity:.65; vector-effect:non-scaling-stroke; }
+  @keyframes evin { to { opacity:1; } }
+  .signal .lab { position:absolute; font-size:11.5px; color:var(--muted); letter-spacing:.02em; }
+  .signal .lab.l1 { right:0; top:-18px; color:var(--coral); opacity:.85; }
+  .signal .lab.l2 { left:0; bottom:-22px; }
+  .signal .lab.l3 { right:0; bottom:-22px; color:var(--accent); opacity:0; animation:evin 1s ease 4s forwards; }
+
+  section.block { padding:96px 0 0; }
+  .kicker { color:var(--accent); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:500; }
+  .block h2 { font-size:clamp(26px,3.4vw,38px); line-height:1.15; font-weight:600; letter-spacing:-.025em; margin-top:10px; max-width:720px; }
+  .block .lead { color:var(--muted); font-size:17px; margin-top:12px; max-width:640px; }
+  .on-view { opacity:0; transform:translateY(20px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+  .on-view.in { opacity:1; transform:none; }
+  .on-view.t1 { transition-delay:.1s } .on-view.t2 { transition-delay:.2s } .on-view.t3 { transition-delay:.3s } .on-view.t4 { transition-delay:.4s }
+  .panel { border:1px solid var(--line); border-radius:18px; background:linear-gradient(180deg, rgba(15,22,38,.9), rgba(10,15,28,.9)); }
+
+  .numbers { display:grid; grid-template-columns:repeat(5,1fr); margin-top:34px; }
+  .numbers > div { padding:26px 22px; } .numbers > div + div { border-left:1px solid var(--line); }
+  .numbers b { display:block; font-size:clamp(28px,3.4vw,40px); font-weight:600; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+  .numbers b small { font-size:.5em; color:var(--muted); font-weight:500; margin-left:4px; letter-spacing:0; }
+  .numbers > div > span { color:var(--muted); font-size:13.5px; line-height:1.45; display:block; margin-top:6px; }
+  .numbers b span { font:inherit; color:inherit; }
+
+  .flowsteps { position:relative; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:34px; }
+  .flowsteps::before { content:""; position:absolute; left:6%; right:6%; top:34px; height:1px; background:var(--line); }
+  .flowsteps::after { content:""; position:absolute; top:31px; left:6%; width:7px; height:7px; border-radius:99px; background:var(--accent);
+                      box-shadow:0 0 0 4px rgba(94,234,212,.15); animation:travel 4.2s cubic-bezier(.45,0,.55,1) infinite; }
+  @keyframes travel { 0% { left:6%; opacity:0; } 8% { opacity:1; } 92% { opacity:1; } 100% { left:93%; opacity:0; } }
+  .fs { position:relative; padding:0 6px; }
+  .fs .n { width:68px; height:68px; border-radius:99px; display:grid; place-items:center; margin:0 auto; position:relative; z-index:1;
+           background:var(--bg); border:1px solid rgba(94,234,212,.35); color:var(--accent); font-weight:600; font-size:15px; }
+  .fs h4 { text-align:center; font-size:17px; font-weight:600; margin-top:16px; }
+  .fs p { text-align:center; color:var(--muted); font-size:14.5px; margin-top:6px; }
+  .note { margin-top:26px; padding:18px 22px; display:flex; gap:16px; align-items:center; }
+  .note .badge { flex:none; padding:5px 11px; border-radius:99px; font-size:12px; color:#c7d2fe; border:1px solid rgba(129,140,248,.45); background:rgba(129,140,248,.08); }
+  .note p { color:#cbd3e1; font-size:15px; }
+
+  .data { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:34px; }
+  .data .d { padding:22px; }
+  .data .d b { display:block; font-size:28px; font-weight:600; letter-spacing:-.02em; }
+  .data .d h4 { font-size:14.5px; font-weight:600; margin-top:10px; } .data .d p { color:var(--muted); font-size:13.5px; margin-top:4px; line-height:1.5; }
+
+  .stack { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:34px; }
+  .stack > div { padding:24px 22px; } .stack > div + div { border-left:1px solid var(--line); }
+  .stack h4 { color:var(--accent); font-size:12.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; }
+  .stack ul { list-style:none; padding:0; margin-top:12px; }
+  .stack li { padding:8px 0; border-bottom:1px solid rgba(148,163,184,.08); font-size:14.5px; }
+  .stack li:last-child { border-bottom:0; } .stack li small { display:block; color:var(--muted); font-size:12.5px; }
+
+  .closing { margin-top:96px; padding:44px; text-align:center; position:relative; overflow:hidden; }
+  .closing::before { content:""; position:absolute; inset:0; background:radial-gradient(500px 200px at 50% 0, rgba(94,234,212,.10), transparent 70%); }
+  .closing h2 { font-size:clamp(24px,3vw,34px); font-weight:600; letter-spacing:-.02em; position:relative; }
+  .closing p { color:var(--muted); margin-top:10px; position:relative; }
+  .closing .cta { position:relative; }
+
+  @media (max-width:880px) {
+    .numbers, .data, .stack { grid-template-columns:1fr 1fr; }
+    .numbers > div + div, .stack > div + div { border-left:0; }
+    .numbers > div, .stack > div { border-top:1px solid var(--line); }
+    .flowsteps { grid-template-columns:1fr 1fr; row-gap:28px; } .flowsteps::before, .flowsteps::after { display:none; }
+    .note { flex-direction:column; align-items:flex-start; }
+  }
   @media (max-width:780px) {
     .slide { grid-template-columns:1fr; gap:26px; padding-bottom:84px; }
     nav a:not(.keep) { display:none; }
@@ -107,6 +178,7 @@
     *, *::before { animation:none !important; transition:none !important; }
     .rise, .appear, .chat .msg, .stat { opacity:1; transform:none; }
     .reveal { clip-path:none; } .bar { transform:none; } .draw-line { stroke-dashoffset:0; }
+    .words .w, .on-view { opacity:1; transform:none; } .signal .bl { stroke-dashoffset:0; } .signal .ev, .signal .lab.l3 { opacity:1; }
   }
 </style>
 </head>
@@ -126,12 +198,23 @@
 
   <section class="hero">
     <div class="eyebrow rise d1">AI operator for EV charging</div>
-    <h1 class="rise d2">More EV chargers on the grid<br>connection <span>you already have.</span></h1>
+    <h1 class="words" id="headline">More EV chargers on the grid<br>connection <span class="grad">you already have.</span></h1>
     <p class="rise d3">Headroom watches the building, charges the cars in the room it leaves, and guarantees the site never goes
       over its limit. Meta's Muse Spark runs it day to day.</p>
     <div class="cta rise d4">
       <a class="btn main" href="demo/">See how it works</a>
       <a class="btn" href="{{VIDEO}}">Watch the video</a>
+    </div>
+    <div class="signal rise d4" aria-label="A real building's load on a hot day, with charging filling the room under its peak">
+      <span class="lab l1">grid connection limit</span>
+      <svg viewBox="0 0 600 232" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="gEv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5eead4" stop-opacity=".9"/><stop offset="1" stop-color="#2dd4bf" stop-opacity=".35"/></linearGradient></defs>
+        <line class="lim" x1="0" y1="{{LIMIT_Y}}" x2="600" y2="{{LIMIT_Y}}"/>
+        <path class="ev" d="{{EV_PATH}}"/>
+        <path class="bl" d="{{BUILDING_LINE}}"/>
+      </svg>
+      <span class="lab l2">a real building, 21 June 2017 · midnight to 11 pm</span>
+      <span class="lab l3">charging in the room it leaves</span>
     </div>
   </section>
 
@@ -245,7 +328,65 @@
     <button class="arrow l" aria-label="Previous slide">←</button><button class="arrow r" aria-label="Next slide">→</button>
   </div>
 
-  <div class="models rise d4">Built on <b>Muse Spark</b><i>·</i><b>Muse Voice Transcribe</b><i>·</i><b>Muse Glimmer</b></div>
+  <section class="block">
+    <div class="kicker on-view">Results on real data</div>
+    <h2 class="on-view t1">Tested on months it never saw.</h2>
+    <p class="lead on-view t2">Six held-out summer months, real drivers, a real metered building and the utility's own tariff, against
+      standard smart charging and Caltech's open-source adacharge.</p>
+    <div class="panel numbers on-view t2">
+      <div><b><span data-count="{{WITH}}">0</span><small>vs {{WITHOUT}}</small></b><span>chargers on the same 1,000 kW connection</span></div>
+      <div><b><span data-count="{{SAVING_N}}">0</span>%</b><span>lower demand charges than standard smart charging</span></div>
+      <div><b><span data-count="{{SERVED_N}}">0</span>%</b><span>of drivers' energy delivered</span></div>
+      <div><b><span data-count="{{VIOLATIONS}}">0</span></b><span>times over the grid limit</span></div>
+      <div><b><span data-count="{{MORE_N}}">0</span>%</b><span>of {{BUILDINGS}} more real buildings fit more chargers, none fewer</span></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="kicker on-view">How it works</div>
+    <h2 class="on-view t1">Every 15 minutes, four steps. The AI talks; the math decides.</h2>
+    <div class="flowsteps">
+      <div class="fs on-view t1"><div class="n">01</div><h4>See the building</h4><p>A forecast of the building's next 24 hours, with a calibrated worst case.</p></div>
+      <div class="fs on-view t2"><div class="n">02</div><h4>Plan the charging</h4><p>A linear program fills the room under the peak already paid for. Drivers come first.</p></div>
+      <div class="fs on-view t3"><div class="n">03</div><h4>Guarantee the limit</h4><p>A deterministic safety layer has the last word. Nothing above it can override it.</p></div>
+      <div class="fs on-view t4"><div class="n">04</div><h4>Send to the chargers</h4><p>Each charger gets its power limit over OCPP, valid for 15 minutes, so it fails safe.</p></div>
+    </div>
+    <div class="panel note on-view t2"><span class="badge">Meta Muse Spark</span><p>The site manager just asks: <i>"Can I add 12 more
+      chargers? What would it cost me?"</i> Muse Spark answers by running Headroom's own tools, and every number it says is checked
+      against them. If the internet drops, Muse Glimmer answers from the site's own GPU.</p></div>
+  </section>
+
+  <section class="block">
+    <div class="kicker on-view">Built on real data</div>
+    <h2 class="on-view t1">Nothing here is synthetic.</h2>
+    <div class="data">
+      <div class="panel d on-view t1"><b>{{SESSIONS}}</b><h4>Charging sessions</h4><p>City of Palo Alto open data, WEBSTER garage, 2016–2017: every arrival, departure and kWh.</p></div>
+      <div class="panel d on-view t2"><b>1 + {{BUILDINGS}}</b><h4>Metered buildings</h4><p>Building Data Genome 2: a UC Berkeley building, then {{BUILDINGS}} more at {{SITES}} US sites.</p></div>
+      <div class="panel d on-view t3"><b>3</b><h4>Utility tariffs</h4><p>Palo Alto E-4 and E-7, and PG&amp;E B-19. Muse Spark read them {{E4_FIELDS}}, {{E7_FIELDS}} and {{B19_FIELDS}}.</p></div>
+      <div class="panel d on-view t4"><b>CAISO</b><h4>Grid alerts</h4><p>Real Flex Alert days, used to size the plan from the building's own past alert days.</p></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="kicker on-view">Tech stack</div>
+    <h2 class="on-view t1">Three Meta models, a solver, and an open charger protocol.</h2>
+    <div class="panel stack on-view t2">
+      <div><h4>Meta AI</h4><ul><li>Muse Spark 1.3<small>operator, tariff reader · Meta Model API</small></li>
+        <li>Muse Voice Transcribe 1.0<small>spoken requests</small></li><li>Muse Glimmer<small>open weights, on-site backup · Ollama</small></li></ul></div>
+      <div><h4>Decision engine</h4><ul><li>Python 3.12<small>simulator, forecast, studies</small></li>
+        <li>Linear program<small>HiGHS via SciPy, every 15 minutes</small></li><li>Safety layer<small>fuzz-tested on 10,000 plans</small></li></ul></div>
+      <div><h4>Integration</h4><ul><li>OCPP 1.6J<small>{{OCPP_ACC}}/{{OCPP_MSG}} commands accepted</small></li>
+        <li>Green Button meter data<small>any building's export</small></li><li>Checked tool calls<small>pydantic schemas, number check</small></li></ul></div>
+      <div><h4>Validation</h4><ul><li>Held-out test months<small>nothing tuned on them</small></li>
+        <li>Caltech adacharge<small>open-source baseline, unmodified</small></li><li>35 automated tests<small>{{SPEND_NOTE}}</small></li></ul></div>
+    </div>
+  </section>
+
+  <section class="panel closing on-view">
+    <h2>See one real day, step by step.</h2>
+    <p>The problem, every 15-minute decision, the AI operator's real answers, and how a site would adopt it.</p>
+    <div class="cta"><a class="btn main" href="demo/">Open the walkthrough</a><a class="btn" href="{{REPO}}">Read the code</a></div>
+  </section>
 
   <footer>Meta Global AI Developer Hackathon 2026 · <a href="{{REPO}}">Source on GitHub</a> · MIT licence<br>
     Real data: City of Palo Alto charging sessions, Building Data Genome 2 meters, published utility tariffs. The site that
@@ -253,6 +394,38 @@
 </div>
 
 <script>
+(() => {
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // headline: each word rises in turn (the gradient phrase keeps its gradient)
+  let k = 0;
+  const wrap = node => {
+    [...node.childNodes].forEach(n => {
+      if (n.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        n.textContent.split(/(\s+)/).forEach(part => {
+          if (!part.trim()) { frag.appendChild(document.createTextNode(part)); return; }
+          const w = document.createElement('span'); w.className = 'w'; w.textContent = part;
+          w.style.animationDelay = (0.15 + 0.07 * k++) + 's'; frag.appendChild(w);
+        });
+        n.replaceWith(frag);
+      } else if (n.nodeType === 1 && n.tagName !== 'BR') wrap(n);
+    });
+  };
+  wrap(document.getElementById('headline'));
+  // numbers count up, sections rise, when they come into view
+  const count = el => {
+    const end = +el.dataset.count, t0 = performance.now(), dur = 1400;
+    if (still) { el.textContent = end; return; }
+    const tick = t => { const p = Math.min(1, (t - t0) / dur); el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3)));
+                        if (p < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  };
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('in'); e.target.querySelectorAll('[data-count]').forEach(count); io.unobserve(e.target);
+  }), { rootMargin: '0px 0px -10% 0px' });
+  document.querySelectorAll('.on-view').forEach(e => io.observe(e));
+})();
 (() => {
   const car = document.getElementById('car'), track = car.querySelector('.track');
   const slides = [...track.children], dots = car.querySelector('.dots'), bar = car.querySelector('.progress');

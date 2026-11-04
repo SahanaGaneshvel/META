@@ -249,7 +249,7 @@
     </div>
     <div class="facts">
       <div class="fact reveal d1"><b>Building</b><span>A UC Berkeley building, metered every hour<small>Building Data Genome 2, 2016–2017</small></span></div>
-      <div class="fact reveal d2"><b>Drivers</b><span>18,893 real charging sessions<small>City of Palo Alto, WEBSTER garage</small></span></div>
+      <div class="fact reveal d2"><b>Drivers</b><span><span id="nSessions">–</span> recorded charging sessions<small>City of Palo Alto, WEBSTER garage</small></span></div>
       <div class="fact reveal d3"><b>Bill</b><span>The utility's own published tariff<small>City of Palo Alto E-4 TOU, 2026 rates</small></span></div>
       <div class="fact reveal d3"><b>AI</b><span>Meta's Muse Spark, Voice Transcribe and Glimmer<small>real recorded answers, every number checked</small></span></div>
     </div>
@@ -776,8 +776,9 @@ function proof(D) {
 /* 07 · what we built */
 function built(D) {
   const R = D.results, tf = R.tariffs;
+  $("#nSessions").textContent = D.meta.sessions.toLocaleString("en-US");
   const items = [
-    ["Data pipeline", "Real sessions and real meters, cleaned into one 15-minute table.", "18,893 sessions · 2 years"],
+    ["Data pipeline", "Real sessions and real meters, cleaned into one 15-minute table.", `${D.meta.sessions.toLocaleString("en-US")} sessions · 2 years`],
     ["Simulator", "Every car, every 15 minutes, with arrivals it can't foresee.", "the same sessions for every method"],
     ["Forecast", "The building's next 24 hours with a calibrated likely range.", "a trained model tested too: no gain"],
     ["Planner", "A linear program re-solved every 15 minutes; drivers come first.", "HiGHS solver"],

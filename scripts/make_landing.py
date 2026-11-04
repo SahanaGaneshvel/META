@@ -60,13 +60,18 @@ def chart() -> dict:
         return "M" + " L".join(pts) + " Z"
 
     floor = np.full_like(building, 450.0)
-    return {"building": area(building, floor), "ev": area(building + ev, building), "limit": f"{y(1000):.1f}",
+    line = "M" + " L".join(f"{a:.1f},{y(b):.1f}" for a, b in zip(x, building))
+    return {"building": area(building, floor), "ev": area(building + ev, building), "limit": f"{y(1000):.1f}", "line": line,
             "peak_x": f"{(16 - hours.min()) / (hours.max() - hours.min()) * 600:.1f}",
             "peak_w": f"{5 / (hours.max() - hours.min()) * 600:.1f}"}
 
 
 def main() -> None:
     n, c = numbers(), chart()
+    demo = json.loads((ROOT / "docs" / "demo" / "data.json").read_text(encoding="utf-8"))  # scripts/export_demo.py
+    tf, oc = demo["results"]["tariffs"], demo["results"]["ocpp"]
+    spend_file = DATA / "spend.json"  # local only (git-ignored): the spend guard's running total
+    spend = json.loads(spend_file.read_text())["usd"] if spend_file.exists() else None
     html = (Path(__file__).with_name("landing_template.html")).read_text(encoding="utf-8")
     for key, value in {
         "SPIKE": f"${n['spike']:,.0f}", "ENERGY": f"${n['energy']:.0f}", "SAVING": f"{n['saving']:.0%}",
@@ -75,7 +80,11 @@ def main() -> None:
         "SITES": str(n["sites"]), "MORE": f"{n['more']:.0%}", "MEDIAN": f"+{n['median']:.0%}",
         "BUILDING_PATH": c["building"], "EV_PATH": c["ev"], "LIMIT_Y": c["limit"], "PEAK_X": c["peak_x"],
         "PEAK_W": c["peak_w"], "REPO": REPO, "VIDEO": VIDEO, "EXTRA": f"${n['extra']:,.0f}",
-        "SERVED36": f"{n['served36']:.0%}", "VIOL36": str(n["viol36"]),
+        "SERVED36": f"{n['served36']:.0%}", "VIOL36": str(n["viol36"]), "BUILDING_LINE": c["line"],
+        "SAVING_N": f"{n['saving'] * 100:.0f}", "SERVED_N": f"{n['served'] * 100:.0f}", "MORE_N": f"{n['more'] * 100:.0f}",
+        "SESSIONS": f"{demo['meta']['sessions']:,}", "E4_FIELDS": tf["cpau-e-4-tou-2026"]["fields"],
+        "E7_FIELDS": tf["cpau-e-7-tou-2026"]["fields"], "B19_FIELDS": tf["pge-b-19-2026"]["fields"],
+        "OCPP_ACC": str(oc["accepted"]), "OCPP_MSG": str(oc["messages"]), "SPEND_NOTE": f"and a ${spend:.2f} total model bill" if spend is not None else "every model call recorded",
     }.items():
         html = html.replace("{{" + key + "}}", value)
     assert "{{" not in html, "unfilled placeholder"

@@ -80,7 +80,7 @@ def day_steps(site: ReplaySite) -> tuple[list[dict], dict]:
             "bill_headroom": round(added_demand(hr.ev_kw, t)), "bill_standard": round(added_demand(llf.ev_kw, t)),
         })
     peak = next(s for s in spec.seasons if 6 in s.months)
-    return rows, {"service_kw": float(sc.service_kw), "chargers": len(ports),
+    return rows, {"service_kw": float(sc.service_kw), "chargers": len(ports), "sessions": int(len(site.sessions)),
                   "demand_rates": {d.name: d.usd_per_kw for d in peak.demand}}
 
 
