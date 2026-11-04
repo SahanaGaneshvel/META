@@ -19,7 +19,7 @@ from headroom.config import DATA, ROOT  # noqa: E402
 from headroom.tariff import load_gold  # noqa: E402
 
 REPO = "https://github.com/SahanaGaneshvel/META"
-VIDEO = "VIDEO_LINK"  # filled in once the video is uploaded
+VIDEO = "https://youtu.be/1-Ch1mL8464"
 
 
 def numbers() -> dict:

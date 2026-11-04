@@ -6,7 +6,7 @@
 
 Meta Global AI Developer Hackathon 2026 · Indie track · *Push the Frontier* (energy: controlling a physical system)
 
-**[See how it works](https://headroom-meta.vercel.app/demo/)** · **[Watch the demo video](VIDEO_LINK)** · [Project page](https://headroom-meta.vercel.app/) · [Run it yourself](#run-the-demo-no-key-no-account) · [All results](#results)
+**[See how it works](https://headroom-meta.vercel.app/demo/)** · **[Watch the demo video](https://youtu.be/1-Ch1mL8464)** · [Project page](https://headroom-meta.vercel.app/) · [Run it yourself](#run-the-demo-no-key-no-account) · [All results](#results)
 
 ## The problem
 Offices, malls, campuses and fleet depots all want more EV chargers, and the chargers plug into the same grid connection as the building.

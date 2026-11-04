@@ -890,7 +890,7 @@ function built(D) {
     ["OCPP bridge", "Each decision as a charger command.", `${R.ocpp.accepted}/${R.ocpp.messages} accepted, ${R.ocpp.max_limit_mismatch_w} W off`],
   ];
   $("#builtGrid").innerHTML = items.map(([h, p, e], i) => `<div class="card b reveal d${i % 4}"><h4>${esc(h)}</h4><p>${esc(p)}</p><em>${esc(e)}</em></div>`).join("");
-  const totals = [["35", "automated tests"], ["3", "Meta models"], ["$0.49", "spent on model calls in total"], ["0", "times over the grid limit"]];
+  const totals = [["35", "automated tests"], ["3", "Meta models"], ["$0.60", "spent on model calls in total"], ["0", "times over the grid limit"]];
   $("#totals").innerHTML = totals.map(([v, k]) => `<div class="card"><b>${v}</b><span>${k}</span></div>`).join("");
   document.querySelectorAll("#builtGrid .reveal, #totals").forEach(e => revealer.observe(e));
 }
