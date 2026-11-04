@@ -133,6 +133,13 @@ def load_site(month: str, n_ports: int) -> ReplaySite:
     return ReplaySite(month=month, n_ports=n_ports)
 
 
+@st.cache_data(show_spinner=False)
+def read_tariff(doc: str) -> dict:
+    """The recorded tariff reading, verified once per server: reading the PDF and re-billing a year is the
+    slowest step in the app, and its answer never changes for a given document."""
+    return load_site("2017-06", 24).fork().read_tariff_document(doc)
+
+
 @st.cache_data
 def headline() -> dict:
     """The held-out results, straight from the benchmark and capacity-study files."""
@@ -597,7 +604,9 @@ def check_building() -> None:
                    "many fleet sizes: a few minutes, longer for a large building. The sample answers instantly.")
         context(h)
         return
-    cache = RESULTS / "check_cache" / f"{hashlib.sha256(raw + str(service).encode()).hexdigest()[:16]}.json"
+    # line endings don't change the data: Git checks the sample out with CRLF on Windows and LF on Linux hosts
+    key = hashlib.sha256(raw.replace(b"\r\n", b"\n") + str(service).encode()).hexdigest()[:16]
+    cache = RESULTS / "check_cache" / f"{key}.json"
     status = None
     if cache.exists():
         answer = json.loads(cache.read_text())
@@ -693,7 +702,7 @@ def verified() -> None:
         if st.button("Read and verify", type="primary", icon=":material/fact_check:"):
             try:
                 with st.spinner("Muse Spark is reading the tariff…"):
-                    out = site.read_tariff_document(doc)
+                    out = read_tariff(doc) if replay_mode() else site.read_tariff_document(doc)
                 v = out.get("verification", {})
                 a, b, c = st.columns(3)
                 a.metric("Fields read correctly", v.get("fields_correct"))
