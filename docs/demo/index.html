@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headroom · Demo</title>
+<meta name="description" content="One real day, step by step: how Headroom fits more EV chargers on a building's grid connection.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230a0f1c'/%3E%3Cpath d='M2.5 4.5H21.5' stroke='%235eead4' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='3.5' y='13' width='4' height='8' rx='1' fill='%23e8ecf4'/%3E%3Crect x='10' y='9.5' width='4' height='11.5' rx='1' fill='%23e8ecf4'/%3E%3Crect x='16.5' y='15' width='4' height='6' rx='1' fill='%23e8ecf4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0f1c; --surface:#0f1626; --raise:#131c2f; --line:rgba(148,163,184,.14); --ink:#e8ecf4; --muted:#8b96aa;
+    --accent:#5eead4; --accent-strong:#2dd4bf; --building:#818cf8; --coral:#fb7185; --amber:#fbbf24; --standard:#f59e0b;
+  }
+  * { box-sizing:border-box; margin:0; }
+  html { -webkit-font-smoothing:antialiased; scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--ink); font:16px/1.6 Inter, "Segoe UI", system-ui, sans-serif;
+         background-image:radial-gradient(900px 380px at 50% -140px, rgba(94,234,212,.08), transparent 70%); }
+  a { color:inherit; text-decoration:none; }
+  button { font:inherit; color:inherit; }
+  .wrap { max-width:1120px; margin:0 auto; padding:0 24px; }
+
+  header { display:flex; justify-content:space-between; align-items:center; padding:24px 0; }
+  .logo { font-weight:600; font-size:17px; display:flex; align-items:center; gap:10px; }
+  .logo svg { width:24px; height:24px; }
+  header nav a { margin-left:26px; color:var(--muted); font-size:14px; }
+  header nav a:hover, header nav a.here { color:var(--ink); }
+
+  .intro { padding:40px 0 10px; max-width:760px; }
+  .eyebrow { color:var(--accent); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:500; }
+  .intro h1 { font-size:clamp(30px,4.6vw,46px); line-height:1.12; font-weight:600; letter-spacing:-.025em; margin-top:12px; }
+  .intro p { color:var(--muted); font-size:17px; margin-top:14px; }
+
+  .tabs { position:sticky; top:0; z-index:5; margin:30px -24px 0; padding:12px 24px; background:rgba(10,15,28,.86);
+          backdrop-filter:blur(10px); border-bottom:1px solid var(--line); display:flex; gap:6px; overflow-x:auto; }
+  .tabs a { padding:7px 14px; border-radius:999px; color:var(--muted); font-size:14px; white-space:nowrap; transition:all .2s; }
+  .tabs a b { color:var(--accent); font-weight:500; margin-right:6px; }
+  .tabs a.on { background:rgba(148,163,184,.10); color:var(--ink); }
+
+  section.part { padding:72px 0 8px; scroll-margin-top:60px; }
+  .part-head { display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:end; margin-bottom:26px; }
+  .part-head h2 { font-size:clamp(24px,3vw,32px); line-height:1.18; font-weight:600; letter-spacing:-.02em; margin-top:10px; }
+  .part-head p { color:var(--muted); font-size:16px; }
+  .card { background:linear-gradient(180deg, rgba(19,28,47,.85), rgba(15,22,38,.85)); border:1px solid var(--line); border-radius:18px; }
+  .pad { padding:22px; }
+
+  .seg { display:inline-flex; background:rgba(148,163,184,.08); border:1px solid var(--line); border-radius:10px; padding:3px; }
+  .seg button { border:0; background:transparent; padding:7px 14px; border-radius:8px; color:var(--muted); cursor:pointer; font-size:14px; }
+  .seg button.on { background:var(--raise); color:var(--ink); box-shadow:0 1px 0 rgba(255,255,255,.04) inset; }
+
+  .chart { width:100%; height:auto; display:block; }
+  .chart text { font-family:Inter, "Segoe UI", sans-serif; }
+  .legend { display:flex; gap:18px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-top:10px; }
+  .legend i { display:inline-block; width:12px; height:3px; border-radius:2px; margin-right:7px; vertical-align:middle; }
+
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:16px; }
+  .stat { padding:18px 20px; }
+  .stat .k { color:var(--muted); font-size:13px; }
+  .stat .v { font-size:28px; font-weight:600; letter-spacing:-.02em; margin-top:4px; }
+  .stat .s { color:var(--muted); font-size:13px; margin-top:2px; }
+  .coral { color:var(--coral); } .teal { color:var(--accent); } .amber { color:var(--standard); } .indigo { color:var(--building); }
+
+  /* part 2 */
+  .how { display:grid; grid-template-columns:1.45fr 1fr; gap:16px; }
+  .player { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .play { width:38px; height:38px; border-radius:99px; border:1px solid var(--line); background:var(--raise); cursor:pointer; flex:none; }
+  .play svg { width:14px; height:14px; fill:var(--ink); }
+  .clock { font-variant-numeric:tabular-nums; font-size:22px; font-weight:600; width:66px; }
+  input[type=range] { flex:1; accent-color:var(--accent-strong); }
+  .steps4 { display:grid; gap:10px; }
+  .s4 { padding:14px 16px; border-radius:14px; border:1px solid var(--line); background:rgba(15,22,38,.6); }
+  .s4 h4 { font-size:13px; font-weight:500; color:var(--accent); letter-spacing:.04em; }
+  .s4 h4 span { color:var(--muted); margin-right:6px; }
+  .s4 p { font-size:14.5px; margin-top:4px; color:#cbd3e1; }
+  .s4 b { color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums; }
+  .grid24 { display:grid; grid-template-columns:repeat(12,1fr); gap:4px; margin-top:8px; }
+  .grid24 div { height:18px; border-radius:4px; background:rgba(148,163,184,.10); transition:background .3s; }
+  .bills { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+  .bar { height:8px; border-radius:99px; background:rgba(148,163,184,.12); overflow:hidden; margin-top:10px; }
+  .bar span { display:block; height:100%; border-radius:99px; transition:width .4s; }
+
+  /* part 3 */
+  .ops { display:grid; grid-template-columns:300px 1fr; gap:16px; }
+  .qs { display:grid; gap:8px; align-content:start; }
+  .qs button { text-align:left; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:rgba(15,22,38,.6);
+               cursor:pointer; font-size:14px; color:#cbd3e1; transition:all .2s; }
+  .qs button:hover { border-color:rgba(148,163,184,.35); }
+  .qs button.on { border-color:rgba(94,234,212,.45); color:var(--ink); background:rgba(45,212,191,.06); }
+  .qs button small { display:block; color:var(--muted); font-size:12px; margin-bottom:2px; }
+  .toggle { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; border:1px dashed var(--line);
+            color:var(--muted); font-size:14px; cursor:pointer; margin-top:6px; user-select:none; }
+  .toggle .sw { width:34px; height:20px; border-radius:99px; background:rgba(148,163,184,.25); position:relative; transition:background .2s; flex:none; }
+  .toggle .sw::after { content:""; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:99px; background:#fff; transition:left .2s; }
+  .toggle.on { color:var(--ink); border-color:rgba(251,113,133,.5); }
+  .toggle.on .sw { background:var(--coral); } .toggle.on .sw::after { left:17px; }
+  .chat { padding:22px; min-height:420px; }
+  .who { font-size:12.5px; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .dotlive { width:8px; height:8px; border-radius:99px; background:var(--accent); }
+  .msg { padding:13px 16px; border-radius:14px; margin:10px 0; font-size:15px; line-height:1.6; max-width:92%; animation:rise .45s ease both; }
+  .msg.q { margin-left:auto; background:rgba(148,163,184,.10); border:1px solid var(--line); }
+  .msg.a { background:rgba(45,212,191,.05); border:1px solid rgba(94,234,212,.2); }
+  .msg.a ul { margin:6px 0 0 18px; padding:0; }
+  .check { margin-top:10px; font-size:12.5px; color:var(--accent); }
+  .check.warn { color:var(--coral); }
+  details.tools { margin-top:12px; border-top:1px solid var(--line); padding-top:10px; }
+  details.tools summary { cursor:pointer; color:var(--muted); font-size:13px; }
+  .tool { margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:rgba(10,15,28,.6); }
+  .tool .name { font-family:ui-monospace, Consolas, monospace; font-size:13px; color:var(--accent); }
+  .tool pre { font-family:ui-monospace, Consolas, monospace; font-size:12px; color:#aeb8c9; white-space:pre-wrap; word-break:break-word;
+              margin-top:6px; max-height:220px; overflow:auto; }
+  .typing { color:var(--muted); font-size:14px; padding:10px 0; }
+  .typing span { animation:blink 1s infinite; } .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+  @keyframes blink { 50% { opacity:.2; } }
+  @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  /* part 4 */
+  .proof { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .proof h3 { font-size:17px; font-weight:600; }
+  .proof .sub { color:var(--muted); font-size:14px; margin-top:4px; }
+  .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:16px; }
+  .tile { padding:18px; }
+  .tile .v { font-size:24px; font-weight:600; letter-spacing:-.02em; }
+  .tile .k { color:var(--muted); font-size:13px; margin-top:4px; line-height:1.45; }
+
+
+  /* 0 · in plain words */
+  .story { display:grid; grid-template-columns:1.2fr 1fr; gap:0; overflow:hidden; }
+  .story .stage { padding:26px; border-right:1px solid var(--line); min-height:330px; display:flex; align-items:center; }
+  .story .stage svg { width:100%; height:auto; }
+  .story .words { padding:30px 30px 24px; display:flex; flex-direction:column; }
+  .story .words .n { color:var(--accent); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:500; }
+  .story .words h3 { font-size:clamp(22px,2.6vw,28px); font-weight:600; letter-spacing:-.02em; line-height:1.2; margin-top:10px; }
+  .story .words p { color:#cbd3e1; font-size:16.5px; margin-top:12px; }
+  .story .nav { margin-top:auto; padding-top:20px; display:flex; align-items:center; gap:10px; }
+  .story .pills { display:flex; gap:6px; flex:1; }
+  .story .pills button { flex:1; height:4px; border:0; border-radius:99px; background:rgba(148,163,184,.2); cursor:pointer; padding:0; }
+  .story .pills button.on { background:var(--accent); }
+  .story .next { border:1px solid var(--line); background:var(--raise); border-radius:10px; padding:8px 14px; cursor:pointer; font-size:14px; }
+  .fadein { animation:rise .55s ease both; }
+  @media (max-width:900px) { .story { grid-template-columns:1fr; } .story .stage { border-right:0; border-bottom:1px solid var(--line); } }
+
+  footer { color:var(--muted); font-size:13px; text-align:center; padding:30px 0 46px; margin-top:70px; border-top:1px solid var(--line); line-height:1.8; }
+  footer a { color:var(--ink); }
+
+  @media (max-width:900px) {
+    .part-head, .how, .ops, .proof { grid-template-columns:1fr; }
+    .stats, .tiles { grid-template-columns:1fr 1fr; }
+    .bills { grid-template-columns:1fr; }
+    header nav a:not(.keep) { display:none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 4.5 H21.5" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
+        <rect x="3.5" y="13" width="4" height="8" rx="1" fill="#e8ecf4"/><rect x="10" y="9.5" width="4" height="11.5" rx="1" fill="#e8ecf4"/>
+        <rect x="16.5" y="15" width="4" height="6" rx="1" fill="#e8ecf4"/></svg>Headroom</a>
+    <nav><a href="../">Overview</a><a class="here" href="./">Demo</a><a class="keep" href="https://github.com/SahanaGaneshvel/META">GitHub</a></nav>
+  </header>
+
+  <div class="intro">
+    <div class="eyebrow">See it work</div>
+    <h1>One real day, step by step.</h1>
+    <p>21 June 2017 was a heat-wave alert day in California. Here is a real building's metered load that day, with 24 chargers
+      used by real Palo Alto drivers, billed on the utility's real tariff. Scroll through the problem, how Headroom decides every
+      15 minutes, the AI operator, and the proof.</p>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <a href="#plain" class="on"><b>0</b>In plain words</a><a href="#problem"><b>1</b>The problem</a><a href="#how"><b>2</b>How it works</a>
+    <a href="#operator"><b>3</b>The AI operator</a><a href="#proof"><b>4</b>The proof</a>
+  </nav>
+
+
+  <section class="part" id="plain" style="padding-top:40px">
+    <div class="card story">
+      <div class="stage"><svg id="storySvg" viewBox="0 0 560 300" role="img" aria-label="Illustration"></svg></div>
+      <div class="words"><div class="n" id="storyN"></div><h3 id="storyH"></h3><p id="storyP"></p>
+        <div class="nav"><div class="pills" id="storyPills"></div><button class="next" id="storyNext">Next →</button></div></div>
+    </div>
+  </section>
+
+  <!-- 1 -->
+  <section class="part" id="problem">
+    <div class="part-head">
+      <div><div class="eyebrow">1 · The problem</div>
+        <h2>Chargers that can't see the building pile onto its peak.</h2></div>
+      <p>Standard smart charging splits a fixed charger budget between the cars plugged in. It never sees the building, so
+        on a hot evening it adds its load right on top of the building's peak, the 15 minutes the utility bills.</p>
+    </div>
+    <div class="card pad">
+      <div class="seg" id="probSeg"><button class="on" data-v="0">The building alone</button><button data-v="1">+ 24 chargers, standard smart charging</button></div>
+      <svg class="chart" id="probChart" viewBox="0 0 1000 340" role="img" aria-label="The building's load on 21 June 2017"></svg>
+      <div class="legend"><span><i style="background:var(--building)"></i>the building (metered)</span>
+        <span id="probLegendEv" style="opacity:.35"><i style="background:var(--standard)"></i>charging, standard smart charging</span>
+        <span><i style="background:var(--amber);opacity:.5"></i>4–9 pm, the priciest demand window</span></div>
+    </div>
+    <div class="stats">
+      <div class="card stat"><div class="k">The building's evening peak</div><div class="v" id="pkB">–</div><div class="s">highest 15 minutes, 4–9 pm</div></div>
+      <div class="card stat"><div class="k">With standard smart charging</div><div class="v coral" id="pkS">–</div><div class="s" id="pkAdd">–</div></div>
+      <div class="card stat"><div class="k">Every kW of the month's peak costs</div><div class="v" id="perKw">–</div><div class="s">per month, Palo Alto E-4 summer tariff</div></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="part" id="how">
+    <div class="part-head">
+      <div><div class="eyebrow">2 · How Headroom works</div>
+        <h2>Every 15 minutes: see, plan, guarantee, send.</h2></div>
+      <p>Press play. Headroom forecasts the building, charges in the room under the peak the month has already paid for, checks
+        the grid limit, and sends each charger its power. The bill counters run for the same cars under both approaches.</p>
+    </div>
+    <div class="how">
+      <div class="card pad">
+        <div class="player">
+          <button class="play" id="play" aria-label="Play"><svg viewBox="0 0 14 14" id="playIcon"><path d="M3 1.5v11l9-5.5z"/></svg></button>
+          <div class="clock" id="clock">14:00</div>
+          <input type="range" id="slider" min="0" max="95" value="56" aria-label="Time of day">
+        </div>
+        <svg class="chart" id="howChart" viewBox="0 0 620 340" role="img" aria-label="Site load through the day"></svg>
+        <div class="legend"><span><i style="background:var(--building)"></i>building</span>
+          <span><i style="background:rgba(129,140,248,.35);height:8px"></i>forecast, likely to worst case</span>
+          <span><i style="background:var(--standard)"></i>site, standard smart charging</span>
+          <span><i style="background:var(--accent)"></i>site, Headroom</span>
+          <span><i style="background:var(--accent);opacity:.6;height:1px"></i>peak already paid this month</span></div>
+        <p style="color:var(--muted);font-size:13.5px;margin-top:10px">How to read it: the blue area is the building. The teal line is the
+          whole site with Headroom; it fills the quiet hours and stays near the dashed line, the peak already paid for. The orange line is
+          ordinary charging, which climbs above it in the evening. The shaded band ahead is Headroom's forecast.</p>
+        <div class="bills">
+          <div><div class="k" style="color:var(--muted);font-size:13px">Demand charges added by charging, June to date</div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px"><span class="amber">Standard smart charging</span><b id="billS">–</b></div>
+            <div class="bar"><span id="barS" style="background:var(--standard)"></span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:12px"><span class="teal">Headroom</span><b id="billH">–</b></div>
+            <div class="bar"><span id="barH" style="background:var(--accent-strong)"></span></div></div>
+          <div><div class="k" style="color:var(--muted);font-size:13px">Over the six held-out test months</div>
+            <div class="v" style="font-size:34px;font-weight:600;margin-top:6px" id="saving">–</div>
+            <div style="color:var(--muted);font-size:13.5px" id="savingSub">–</div></div>
+        </div>
+      </div>
+      <div class="steps4">
+        <div class="s4"><h4><span>1</span>See the building</h4><p id="st1">–</p></div>
+        <div class="s4"><h4><span>2</span>Plan the charging</h4><p id="st2">–</p></div>
+        <div class="s4"><h4><span>3</span>Guarantee the limit</h4><p id="st3">–</p></div>
+        <div class="s4"><h4><span>4</span>Send to the chargers</h4><p id="st4">–</p><div class="grid24" id="grid24"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="part" id="operator">
+    <div class="part-head">
+      <div><div class="eyebrow">3 · The AI operator</div>
+        <h2>The site manager just asks. Meta's Muse Spark answers.</h2></div>
+      <p>Muse Spark can only act through checked tools. It never touches the chargers, and every number it says is traced back
+        to a tool result. These are its real recorded answers. Cut the internet and Meta's open-weight Muse Glimmer answers on site.</p>
+    </div>
+    <div class="ops">
+      <div class="qs" id="qs"></div>
+      <div class="card chat" id="chat"></div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="part" id="proof">
+    <div class="part-head">
+      <div><div class="eyebrow">4 · The proof</div>
+        <h2 id="proofTitle">–</h2></div>
+      <p>Six held-out summer months that nothing was tuned on, three resampled fleets each, real data only. Then the same check
+        on dozens of other real buildings, a second utility's tariff, and the protocol real chargers speak.</p>
+    </div>
+    <div class="proof">
+      <div class="card pad"><h3>Hosting capacity on the same 1,000 kW connection</h3>
+        <div class="sub">Share of the 18 month-scenarios in which every driver got their energy</div>
+        <svg class="chart" id="capChart" viewBox="0 0 520 300" role="img" aria-label="Capacity curves"></svg>
+        <div class="legend"><span><i style="background:var(--standard)"></i>standard smart charging</span><span><i style="background:var(--accent)"></i>Headroom</span></div></div>
+      <div class="card pad"><h3 id="bTitle">–</h3>
+        <div class="sub">Chargers each fits on its existing connection. Above the line, Headroom fits more.</div>
+        <svg class="chart" id="bChart" viewBox="0 0 520 300" role="img" aria-label="Buildings scatter"></svg></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <footer>
+    Real data: City of Palo Alto charging sessions, Building Data Genome 2 meters, Palo Alto and PG&amp;E published tariffs, CAISO
+    Flex Alert dates. The site that combines them and the chargers are simulated. Research prototype, built for the Meta Global
+    AI Developer Hackathon 2026.<br>
+    <a href="https://github.com/SahanaGaneshvel/META">Source code and every result on GitHub</a>
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const NS = "http://www.w3.org/2000/svg";
+const fmt$ = v => "$" + Math.round(v).toLocaleString("en-US");
+const kw = v => Math.round(v).toLocaleString("en-US") + " kW";
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
+
+fetch("data.json").then(r => r.json()).then(D => { plain(D); problem(D); how(D); operator(D); proof(D); tabs(); });
+
+/* a day chart: x = 96 quarter hours, y = kW */
+function dayFrame(svg, D, { y0 = 450, y1 = 1050, h = 340, left = 46, bottom = 30, W = 1000, fs = 12 } = {}) {
+  svg.innerHTML = "";
+  const top = 14;
+  const x = i => left + (i / 95) * (W - left - 10);
+  const y = v => top + (1 - (v - y0) / (y1 - y0)) * (h - top - bottom);
+  const win = D.steps.map((s, i) => s.window ? i : null).filter(i => i !== null);
+  if (win.length) el("rect", { x: x(win[0]), y: top, width: x(win[win.length - 1] + 1) - x(win[0]), height: h - top - bottom,
+                               fill: "#fbbf24", opacity: .09 }, svg);
+  for (let v = 500; v <= 1000; v += 100) {
+    el("line", { x1: left, x2: W - 10, y1: y(v), y2: y(v), stroke: "rgba(148,163,184,.08)" }, svg);
+    const t = el("text", { x: left - 8, y: y(v) + 4, fill: "#8b96aa", "font-size": fs, "text-anchor": "end" }, svg); t.textContent = v;
+  }
+  el("line", { x1: left, x2: W - 10, y1: y(D.meta.service_kw), y2: y(D.meta.service_kw), stroke: "#fb7185", "stroke-dasharray": "5 6", opacity: .75 }, svg);
+  const lt = el("text", { x: W - 12, y: y(D.meta.service_kw) - 7, fill: "#fb7185", "font-size": fs, "text-anchor": "end", opacity: .9 }, svg);
+  lt.textContent = "grid connection limit";
+  [0, 6, 12, 18].forEach(hh => { const t = el("text", { x: x(hh * 4), y: h - 8, fill: "#8b96aa", "font-size": fs }, svg);
+    t.textContent = hh === 0 ? "midnight" : hh === 12 ? "noon" : (hh % 12) + (hh < 12 ? " am" : " pm"); });
+  const kwT = el("text", { x: 4, y: top + 8, fill: "#8b96aa", "font-size": fs }, svg); kwT.textContent = "kW";
+  return { x, y, top, h, bottom };
+}
+function line(svg, pts, attrs) { return el("path", { d: "M" + pts.map(p => p.join(",")).join(" L"), fill: "none", ...attrs }, svg); }
+function area(svg, top, bot, attrs) {
+  return el("path", { d: "M" + top.map(p => p.join(",")).join(" L") + " L" + bot.slice().reverse().map(p => p.join(",")).join(" L") + " Z", ...attrs }, svg);
+}
+
+/* 0 · in plain words: six steps, each one picture and one sentence, drawn from the same real day */
+function plain(D) {
+  const S = D.steps, R = D.results, svg = $("#storySvg"), W = 560, H = 300;
+  const perKw = Object.values(D.meta.demand_rates).reduce((a, b) => a + b, 0);
+  const lo = 450, hi = 1050, L = 20, Rr = W - 20, T = 26, B = H - 40;
+  const x = i => L + i / 95 * (Rr - L), y = v => T + (1 - (v - lo) / (hi - lo)) * (B - T);
+  const bld = S.map((s, i) => [x(i), y(s.building)]), floor = S.map((s, i) => [x(i), y(lo)]);
+  const peakIdx = S.reduce((b, s, i) => s.window && s.building + s.ev_standard > S[b].building + S[b].ev_standard ? i : b, S.findIndex(s => s.window));
+  const win = S.filter(s => s.window);
+  const raise = Math.max(0, Math.max(...win.map(s => s.building + s.ev_headroom)) - win[0].paid_kw);  // above what was paid before
+  function base(label = true) {
+    svg.innerHTML = "";
+    const defs = el("defs", {}, svg), g = el("linearGradient", { id: "gS", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    el("stop", { offset: 0, "stop-color": "#818cf8", "stop-opacity": .55 }, g); el("stop", { offset: 1, "stop-color": "#818cf8", "stop-opacity": .06 }, g);
+    el("line", { x1: L, x2: Rr, y1: y(1000), y2: y(1000), stroke: "#fb7185", "stroke-dasharray": "5 6", opacity: .8 }, svg);
+    if (label) el("text", { x: Rr, y: y(1000) - 8, fill: "#fb7185", "font-size": 13, "text-anchor": "end" }, svg).textContent = "the grid connection's limit";
+    area(svg, bld, floor, { fill: "url(#gS)" }); line(svg, bld, { stroke: "#818cf8", "stroke-width": 2 });
+    [[0, "midnight"], [48, "noon"], [72, "6 pm"]].forEach(([i, t]) => el("text", { x: x(i), y: H - 14, fill: "#8b96aa", "font-size": 12, "text-anchor": i ? "middle" : "start" }, svg).textContent = t);
+  }
+  function tag(px, py, text, color, anchor = "middle") {
+    const t = el("text", { x: px, y: py, fill: color, "font-size": 14, "text-anchor": anchor, class: "fadein" }, svg); t.textContent = text; return t;
+  }
+  const steps = [
+    { h: "A building gets its power through one connection.", p: "Think of it as a pipe of fixed size from the grid. This building's is 1,000 kW. On a hot day the building alone uses most of it, more in the afternoon and evening.",
+      draw() { base(); tag(x(40), y(760), "the building's own use, a real hot day", "#c7d2fe"); } },
+    { h: "The utility bills the busiest 15 minutes of the month.", p: `Besides energy, a business pays for its single busiest 15 minutes each month: here $${perKw.toFixed(2)} a month for every kW of that peak. One 50 kW spike costs about $${Math.round(50 * perKw).toLocaleString()}.`,
+      draw() { base(); const i = S.findIndex(s => s.window) + 1, b = S.slice(S.findIndex(s => s.window), S.findIndex(s => s.window) + 20).reduce((m, s, k) => s.building > m[1] ? [k, s.building] : m, [0, 0]);
+        const px = x(S.findIndex(s => s.window) + b[0]); el("circle", { cx: px, cy: y(b[1]), r: 6, fill: "#fb7185", class: "fadein" }, svg);
+        tag(px, y(b[1]) - 18, "the 15 minutes that set the bill", "#fb7185"); } },
+    { h: "Ordinary EV charging piles onto that peak.", p: "Standard smart charging doesn't look at the building. Cars charge as they arrive, so on a hot evening they add their load right on top of the busiest moment. That raises the bill and fills the pipe, so owners install fewer chargers.",
+      draw() { base(); const top = S.map((s, i) => [x(i), y(s.building + s.ev_standard)]);
+        const a = area(svg, top, bld, { fill: "#f59e0b", opacity: .6 }); a.classList.add("fadein"); line(svg, top, { stroke: "#f59e0b", "stroke-width": 2 });
+        el("circle", { cx: x(peakIdx), cy: y(S[peakIdx].building + S[peakIdx].ev_standard), r: 6, fill: "#fb7185", class: "fadein" }, svg);
+        tag(x(peakIdx) - 10, y(S[peakIdx].building + S[peakIdx].ev_standard) - 16, `+${Math.round(S[peakIdx].ev_standard)} kW on the peak`, "#fb7185", "end"); } },
+    { h: "Headroom charges in the room the building leaves.", p: `Every 15 minutes it predicts the building's next hours and charges cars underneath the peak the month has already paid for (dashed). If drivers need more, it raises that peak only by the minimum: on this heat-wave evening, by ${Math.round(raise)} kW. Every car still leaves with the energy it needs, and a safety layer never lets the site past the limit.`,
+      draw() { base(); const top = S.map((s, i) => [x(i), y(s.building + s.ev_headroom)]);
+        const a = area(svg, top, bld, { fill: "#2dd4bf", opacity: .7 }); a.classList.add("fadein"); line(svg, top, { stroke: "#5eead4", "stroke-width": 2 });
+        // the level the month has already paid for at each moment (lower inside the 4-9 pm window, which has its own charge)
+        const paidPts = S.flatMap((s, i) => [[x(i), y(s.paid_kw)], [x(Math.min(95, i + 1)), y(s.paid_kw)]]);
+        line(svg, paidPts, { stroke: "#5eead4", "stroke-dasharray": "3 5", opacity: .85, class: "fadein" });
+        tag(L + 4, y(S[0].paid_kw) - 8, "the peak already paid for this month", "#5eead4", "start"); } },
+    { h: "The site manager just asks. Meta's Muse Spark answers.", p: "\"Can I add 12 more chargers? What would it cost me?\" Muse Spark answers by running Headroom's own calculations, and every number it says is checked against them. It never controls the chargers; the math does. If the internet drops, Meta's open-weight Muse Glimmer answers on site.",
+      draw() { svg.innerHTML = "";
+        const q = el("g", { class: "fadein" }, svg); el("rect", { x: 150, y: 40, width: 380, height: 54, rx: 14, fill: "rgba(148,163,184,.12)", stroke: "rgba(148,163,184,.25)" }, q);
+        el("text", { x: 170, y: 73, fill: "#e8ecf4", "font-size": 15 }, q).textContent = "Can I add 12 more chargers? What would it cost?";
+        const a = el("g", { class: "fadein", style: "animation-delay:.5s" }, svg); el("rect", { x: 30, y: 118, width: 430, height: 96, rx: 14, fill: "rgba(45,212,191,.08)", stroke: "rgba(94,234,212,.35)" }, a);
+        el("text", { x: 50, y: 150, fill: "#e8ecf4", "font-size": 15 }, a).textContent = `Yes: 36 in total, within capacity (${R.chargers_headroom}).`;
+        el("text", { x: 50, y: 175, fill: "#e8ecf4", "font-size": 15 }, a).textContent = "Every driver still fully charged.";
+        el("text", { x: 50, y: 200, fill: "#5eead4", "font-size": 12.5 }, a).textContent = "Muse Spark · every number checked against Headroom's math ✓";
+        const c = el("g", { class: "fadein", style: "animation-delay:1s" }, svg); el("text", { x: 30, y: 258, fill: "#8b96aa", "font-size": 13 }, c).textContent = "tools it can use: site status · simulate expansion · explain the plan · grid alerts";
+      } },
+    { h: `The result: ${R.chargers_headroom} chargers instead of ${R.chargers_standard}, on the same connection.`, p: `On real data from months it never saw: ${Math.round((1 - R.headroom_usd / R.standard_usd) * 100)}% lower demand charges, ${(R.served * 100).toFixed(0)}% of drivers' energy delivered, ${R.violations} times over the limit. Scroll on to see the same day step by step, the operator's real answers, and the proof.`,
+      draw() { svg.innerHTML = ""; const bars = [[R.chargers_standard, "#f59e0b", "standard smart charging"], [R.chargers_headroom, "#2dd4bf", "Headroom"]];
+        bars.forEach(([n, col, label], k) => { const yy = 70 + k * 110, w = n / R.chargers_headroom * 420;
+          const r = el("rect", { x: 30, y: yy, width: w, height: 46, rx: 10, fill: col, opacity: .85, class: "fadein", style: `animation-delay:${k * .4}s` }, svg);
+          el("text", { x: 30 + w + 12, y: yy + 31, fill: "#e8ecf4", "font-size": 24, "font-weight": 600, class: "fadein" }, svg).textContent = n;
+          el("text", { x: 30, y: yy - 10, fill: "#8b96aa", "font-size": 13 }, svg).textContent = label; });
+        tag(30, 280, "chargers that fit on the same 1,000 kW connection, every driver fully charged", "#8b96aa", "start"); } },
+  ];
+  let i = 0, timer = null;
+  const pills = $("#storyPills");
+  steps.forEach((_, k) => { const b = document.createElement("button"); b.setAttribute("aria-label", `Step ${k + 1}`); b.onclick = () => go(k, true); pills.appendChild(b); });
+  function go(k, byHand) {
+    i = (k + steps.length) % steps.length; const st = steps[i];
+    $("#storyN").textContent = `Step ${i + 1} of ${steps.length}`; $("#storyH").textContent = st.h; $("#storyP").textContent = st.p;
+    [$("#storyH"), $("#storyP")].forEach(e => { e.classList.remove("fadein"); void e.offsetWidth; e.classList.add("fadein"); });
+    st.draw(); [...pills.children].forEach((b, n) => b.classList.toggle("on", n <= i));
+    $("#storyNext").textContent = i === steps.length - 1 ? "Start again" : "Next →";
+    clearTimeout(timer); if (!matchMedia("(prefers-reduced-motion: reduce)").matches) timer = setTimeout(() => go(i + 1), byHand ? 14000 : 9000);
+  }
+  $("#storyNext").onclick = () => go(i + 1, true);
+  go(0);
+}
+
+/* 1 · the problem */
+function problem(D) {
+  const S = D.steps, svg = $("#probChart");
+  const peakIdx = S.reduce((b, s, i) => s.window && s.building + s.ev_standard > (S[b].building + S[b].ev_standard) ? i : b,
+                           S.findIndex(s => s.window));
+  const bPeak = Math.max(...S.filter(s => s.window).map(s => s.building));
+  const sPeak = S[peakIdx].building + S[peakIdx].ev_standard;
+  const rates = Object.values(D.meta.demand_rates);
+  $("#pkB").textContent = kw(bPeak);
+  $("#perKw").textContent = "$" + rates.reduce((a, b) => a + b, 0).toFixed(2);
+  function draw(withEv) {
+    const f = dayFrame(svg, D);
+    const defs = el("defs", {}, svg);
+    const g = el("linearGradient", { id: "gB", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    el("stop", { offset: 0, "stop-color": "#818cf8", "stop-opacity": .5 }, g); el("stop", { offset: 1, "stop-color": "#818cf8", "stop-opacity": .05 }, g);
+    const base = S.map((s, i) => [f.x(i), f.y(450)]);
+    const b = S.map((s, i) => [f.x(i), f.y(s.building)]);
+    area(svg, b, base, { fill: "url(#gB)" });
+    line(svg, b, { stroke: "#818cf8", "stroke-width": 2 });
+    if (withEv) {
+      const top = S.map((s, i) => [f.x(i), f.y(s.building + s.ev_standard)]);
+      const p = area(svg, top, b, { fill: "#f59e0b", opacity: .55 });
+      p.style.animation = "rise .6s ease both";
+      line(svg, top, { stroke: "#f59e0b", "stroke-width": 2 });
+      const cx = f.x(peakIdx), cy = f.y(sPeak);
+      el("line", { x1: cx, x2: cx, y1: f.y(S[peakIdx].building), y2: cy, stroke: "#fb7185", "stroke-width": 2 }, svg);
+      el("circle", { cx, cy, r: 5, fill: "#fb7185" }, svg);
+      const t = el("text", { x: cx - 14, y: cy - 16, fill: "#e8ecf4", "font-size": 15, "text-anchor": "end" }, svg);
+      t.textContent = `+${Math.round(S[peakIdx].ev_standard)} kW on top of the evening peak`;
+    }
+    $("#pkS").textContent = withEv ? kw(sPeak) : "–";
+    $("#pkAdd").textContent = withEv ? `+${Math.round(sPeak - S[peakIdx].building)} kW at ${S[peakIdx].time}` : "switch on the chargers above";
+    $("#probLegendEv").style.opacity = withEv ? 1 : .35;
+  }
+  draw(false);
+  $("#probSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    [...$("#probSeg").children].forEach(x => x.classList.toggle("on", x === b));
+    draw(b.dataset.v === "1");
+  });
+}
+
+/* 2 · how it works */
+function how(D) {
+  const S = D.steps, svg = $("#howChart"), R = D.results;
+  const grid = $("#grid24");
+  for (let i = 0; i < D.meta.chargers; i++) grid.appendChild(document.createElement("div"));
+  $("#saving").textContent = `${Math.round((1 - R.headroom_usd / R.standard_usd) * 100)}% lower`;
+  $("#savingSub").textContent = `demand charges added by charging: ${fmt$(R.headroom_usd)} vs ${fmt$(R.standard_usd)} a month, ` +
+                                `${(R.served * 100).toFixed(0)}% of drivers' energy delivered, ${R.violations} limit violations`;
+  const maxBill = Math.max(...S.map(s => s.bill_standard)) * 1.05;
+  let t = 56, timer = null;
+  function render() {
+    const s = S[t], f = dayFrame(svg, D, { h: 340, W: 620, left: 38, fs: 11.5 });
+    const past = S.slice(0, t + 1);
+    const defs = el("defs", {}, svg);
+    const g = el("linearGradient", { id: "gB2", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    el("stop", { offset: 0, "stop-color": "#818cf8", "stop-opacity": .35 }, g); el("stop", { offset: 1, "stop-color": "#818cf8", "stop-opacity": .03 }, g);
+    area(svg, past.map((p, i) => [f.x(i), f.y(p.building)]), past.map((p, i) => [f.x(i), f.y(450)]), { fill: "url(#gB2)" });
+    line(svg, past.map((p, i) => [f.x(i), f.y(p.building)]), { stroke: "#818cf8", "stroke-width": 1.6 });
+    const n = Math.min(24, 96 - t);  // the forecast issued now, up to 6 hours ahead
+    const ahead = [...Array(n).keys()];
+    area(svg, ahead.map(h => [f.x(t + h), f.y(s.p99[h])]), ahead.map(h => [f.x(t + h), f.y(s.p50[h])]), { fill: "#818cf8", opacity: .22 });
+    line(svg, ahead.map(h => [f.x(t + h), f.y(s.p99[h])]), { stroke: "#818cf8", "stroke-width": 1, "stroke-dasharray": "3 4", opacity: .8 });
+    line(svg, past.map((p, i) => [f.x(i), f.y(p.building + p.ev_standard)]), { stroke: "#f59e0b", "stroke-width": 2, opacity: .9 });
+    line(svg, past.map((p, i) => [f.x(i), f.y(p.building + p.ev_headroom)]), { stroke: "#5eead4", "stroke-width": 2.6 });
+    el("line", { x1: f.x(t), x2: f.x(Math.min(95, t + 24)), y1: f.y(s.paid_kw), y2: f.y(s.paid_kw), stroke: "#5eead4", "stroke-dasharray": "2 4", opacity: .7 }, svg);
+    el("line", { x1: f.x(t), x2: f.x(t), y1: f.top, y2: f.h - f.bottom, stroke: "#e8ecf4", opacity: .5 }, svg);
+    el("circle", { cx: f.x(t), cy: f.y(s.building + s.ev_headroom), r: 4.5, fill: "#5eead4" }, svg);
+
+    $("#clock").textContent = s.time;
+    $("#slider").value = t;
+    const p99next = Math.max(...s.p99.slice(0, 4));
+    const room = Math.max(0, s.paid_kw - s.p99[0]);
+    $("#st1").innerHTML = `Building now <b>${kw(s.building)}</b>. In the next hour it will most likely stay under <b>${kw(p99next)}</b> (the worst case Headroom plans for).`;
+    $("#st2").innerHTML = `This month has already paid for <b>${kw(s.paid_kw)}</b>${s.window ? " in the 4–9 pm window" : ""}, leaving about <b>${kw(room)}</b> of room. ` +
+      `<b>${s.cars}</b> cars plugged in: Headroom charges <b>${kw(s.ev_headroom)}</b>; standard smart charging would draw <b>${kw(s.ev_standard)}</b>.`;
+    const total = s.building + s.ev_headroom;
+    $("#st3").innerHTML = `Site total <b>${kw(total)}</b> of the <b>${kw(D.meta.service_kw)}</b> connection. Safety layer trimmed <b>${s.trim.toFixed(1)} kW</b>; nothing above it can override it.`;
+    const on = s.chargers.filter(v => v > 0.05).length;
+    $("#st4").innerHTML = `OCPP power limits, valid for 15 minutes: <b>${on}</b> of ${D.meta.chargers} chargers charging, the rest held at 0 W.`;
+    [...grid.children].forEach((c, i) => { const v = s.chargers[i];
+      c.style.background = v > 0.05 ? `rgba(94,234,212,${0.25 + 0.75 * Math.min(1, v / 6.2)})` : "rgba(148,163,184,.10)";
+      c.title = `charger ${i + 1}: ${v.toFixed(1)} kW`; });
+    $("#billS").textContent = fmt$(s.bill_standard); $("#billH").textContent = fmt$(s.bill_headroom);
+    $("#barS").style.width = (s.bill_standard / maxBill * 100) + "%"; $("#barH").style.width = (s.bill_headroom / maxBill * 100) + "%";
+  }
+  function stop() { clearInterval(timer); timer = null; $("#playIcon").innerHTML = '<path d="M3 1.5v11l9-5.5z"/>'; }
+  $("#play").onclick = () => {
+    if (timer) return stop();
+    if (t >= 95) t = 0;
+    $("#playIcon").innerHTML = '<path d="M2.5 1.5h3v11h-3zM8.5 1.5h3v11h-3z"/>';
+    timer = setInterval(() => { t = Math.min(95, t + 1); render(); if (t >= 95) stop(); }, 380);
+  };
+  $("#slider").oninput = e => { t = +e.target.value; render(); };
+  render();
+  new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && !timer && t === 56 && !matchMedia("(prefers-reduced-motion: reduce)").matches) $("#play").click(); }),
+                           { threshold: .5 }).observe($("#howChart"));
+}
+
+/* 3 · the operator */
+function operator(D) {
+  let offline = false, current = 0;
+  const qs = $("#qs"), chat = $("#chat");
+  D.spark.forEach((turn, i) => {
+    const b = document.createElement("button");
+    b.innerHTML = `<small>${turn.time === "15:00" ? "3:00 pm" : "6:00 pm"}</small>${esc(turn.question)}`;
+    b.onclick = () => show(i);
+    qs.appendChild(b);
+  });
+  const tg = document.createElement("div");
+  tg.className = "toggle"; tg.innerHTML = '<span class="sw"></span>Cut the site\'s internet';
+  tg.onclick = () => { offline = !offline; tg.classList.toggle("on", offline); show(current); };
+  qs.appendChild(tg);
+  function answerHtml(text) {
+    const lines = esc(text).split("\n");
+    let html = "", inList = false;
+    for (const l of lines) {
+      const m = l.match(/^\s*[*-] (.*)/);
+      if (m) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${m[1]}</li>`; continue; }
+      if (inList) { html += "</ul>"; inList = false; }
+      if (l.trim()) html += `<p style="margin-top:6px">${l}</p>`;
+    }
+    return html + (inList ? "</ul>" : "");
+  }
+  function show(i) {
+    current = i;
+    [...qs.querySelectorAll("button")].forEach((b, n) => b.classList.toggle("on", n === i));
+    const turn = (offline ? D.glimmer : D.spark)[i];
+    chat.innerHTML = `<div class="who"><span class="dotlive" style="background:${offline ? "var(--coral)" : "var(--accent)"}"></span>` +
+      (offline ? "Internet cut · <b style='color:var(--ink)'>Muse Glimmer</b> answering on the site's own GPU" :
+                 "<b style='color:var(--ink)'>Muse Spark</b> answering from the cloud") + "</div>" +
+      `<div class="msg q">${esc(turn.question)}</div><div class="typing" id="typing">checking with the tools<span>.</span><span>.</span><span>.</span></div>`;
+    setTimeout(() => {
+      $("#typing")?.remove();
+      const tools = turn.tools.map(t => `<div class="tool"><div class="name">${t.ok ? "✓" : "✗"} ${esc(t.name)}(${esc(JSON.stringify(t.arguments))})</div>` +
+        `<pre>${esc(JSON.stringify(t.result, null, 1)).slice(0, 2400)}</pre></div>`).join("");
+      const ok = !turn.unsupported.length;
+      chat.insertAdjacentHTML("beforeend", `<div class="msg a">${answerHtml(turn.answer)}` +
+        `<div class="check ${ok ? "" : "warn"}">${ok ? "✓ Every number in this answer is traced to a tool result" : "Not found in any tool result: " + esc(turn.unsupported.join(", "))}</div>` +
+        `<details class="tools"><summary>How it got this: ${turn.tools.length} tool call${turn.tools.length === 1 ? "" : "s"}</summary>${tools}</details></div>`);
+    }, 650);
+  }
+  show(4);
+}
+
+/* 4 · the proof */
+function proof(D) {
+  const R = D.results;
+  $("#proofTitle").textContent = `${R.chargers_headroom} chargers instead of ${R.chargers_standard}, on the same connection.`;
+  // capacity curves
+  const c = $("#capChart"), W = 520, H = 300, L = 44, B = 34, T = 14;
+  const all = [...R.capacity_curve.llf, ...R.capacity_curve.headroom];
+  const xs = [...new Set(all.map(p => p.chargers))].sort((a, b) => a - b);
+  const x = v => L + (v - xs[0]) / (xs[xs.length - 1] - xs[0]) * (W - L - 16), y = v => T + (1 - v) * (H - T - B);
+  [0, .5, 1].forEach(v => { el("line", { x1: L, x2: W - 16, y1: y(v), y2: y(v), stroke: "rgba(148,163,184,.08)" }, c);
+    el("text", { x: L - 8, y: y(v) + 4, fill: "#8b96aa", "font-size": 12, "text-anchor": "end" }, c).textContent = (v * 100) + "%"; });
+  xs.forEach(v => el("text", { x: x(v), y: H - 12, fill: "#8b96aa", "font-size": 12, "text-anchor": "middle" }, c).textContent = v);
+  el("text", { x: W - 16, y: y(0) - 8, fill: "#8b96aa", "font-size": 11, "text-anchor": "end" }, c).textContent = "chargers →";
+  [["llf", "#f59e0b", R.chargers_standard], ["headroom", "#5eead4", R.chargers_headroom]].forEach(([k, col, cap]) => {
+    const pts = R.capacity_curve[k];
+    line(c, pts.map(p => [x(p.chargers), y(p.months_served)]), { stroke: col, "stroke-width": 2.4 });
+    pts.forEach(p => el("circle", { cx: x(p.chargers), cy: y(p.months_served), r: 3.5, fill: col }, c));
+    el("line", { x1: x(cap), x2: x(cap), y1: y(1), y2: H - B, stroke: col, "stroke-dasharray": "3 4", opacity: .6 }, c);
+    el("text", { x: x(cap), y: y(1) - 4, fill: col, "font-size": 12, "text-anchor": "middle" }, c).textContent = cap;
+  });
+  // buildings
+  const b = $("#bChart"), pts = R.buildings, max = Math.max(...pts.map(p => Math.max(p.standard, p.headroom))) * 1.05;
+  $("#bTitle").textContent = `${R.portfolio.n} real buildings at ${R.portfolio.sites} US sites`;
+  const bx = v => L + v / max * (W - L - 16), by = v => T + (1 - v / max) * (H - T - B);
+  el("line", { x1: bx(0), y1: by(0), x2: bx(max), y2: by(max), stroke: "rgba(148,163,184,.35)", "stroke-dasharray": "4 5" }, b);
+  [0, 100, 200, 300].filter(v => v <= max).forEach(v => {
+    el("text", { x: bx(v), y: H - 12, fill: "#8b96aa", "font-size": 12, "text-anchor": "middle" }, b).textContent = v;
+    el("text", { x: L - 8, y: by(v) + 4, fill: "#8b96aa", "font-size": 12, "text-anchor": "end" }, b).textContent = v; });
+  el("text", { x: W - 16, y: by(0) - 8, fill: "#8b96aa", "font-size": 11, "text-anchor": "end" }, b).textContent = "standard smart charging →";
+  el("text", { x: L + 4, y: T + 10, fill: "#8b96aa", "font-size": 11 }, b).textContent = "Headroom";
+  pts.forEach(p => el("circle", { cx: bx(p.standard), cy: by(p.headroom), r: 4.5, fill: p.headroom > p.standard ? "#5eead4" : "#8b96aa", opacity: .8 }, b));
+  // tiles
+  const P = R.portfolio, tf = R.tariffs, o = R.ocpp, b19 = R.b19;
+  const tiles = [
+    [`${Math.round(P.more * 100)}%`, `of ${P.n} real buildings fit more chargers, ${Math.round(P.fewer * 100)}% fewer; median +${Math.round(P.median * 100)}% (+${Math.round(P.median_tight * 100)}% on a tighter connection)`],
+    [`${b19.chargers_headroom} vs ${b19.chargers_standard}`, `on PG&E's B-19 tariff too: ${Math.round((1 - b19.headroom_usd / b19.standard_usd) * 100)}% lower demand charges`],
+    [`${tf["pge-b-19-2026"].fields}`, `fields Muse Spark read right from PG&E's tariff (Palo Alto: ${tf["cpau-e-4-tou-2026"].fields}), every bill reproduced exactly`],
+    [`${o.accepted} / ${o.messages}`, `OCPP 1.6J commands accepted by ${o.chargers} simulated chargers, ${o.max_limit_mismatch_w} W from plan`],
+  ];
+  $("#tiles").innerHTML = tiles.map(([v, k]) => `<div class="card tile"><div class="v">${esc(v)}</div><div class="k">${esc(k)}</div></div>`).join("");
+}
+
+/* sticky tabs follow the scroll */
+function tabs() {
+  const links = [...document.querySelectorAll("#tabs a")];
+  new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.hash === "#" + e.target.id)); }),
+                           { rootMargin: "-45% 0px -50% 0px" }).observe($("#problem"));
+  ["#plain", "#how", "#operator", "#proof"].forEach(id => new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.hash === id)); }),
+                                                                         { rootMargin: "-45% 0px -50% 0px" }).observe($(id)));
+}
+</script>
+</body>
+</html>

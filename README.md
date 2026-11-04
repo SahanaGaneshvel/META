@@ -6,7 +6,7 @@
 
 Meta Global AI Developer Hackathon 2026 · Indie track · *Push the Frontier* (energy: controlling a physical system)
 
-**[Watch the 3-minute demo](VIDEO_LINK)** · **[Try the app](APP_LINK)** · [Project page](https://sahanaganeshvel.github.io/META/) · [Run it yourself](#run-the-demo-no-key-no-account) · [All results](#results)
+**[See how it works](https://headroom-meta.vercel.app/demo/)** · **[Watch the demo video](VIDEO_LINK)** · [Project page](https://headroom-meta.vercel.app/) · [Run it yourself](#run-the-demo-no-key-no-account) · [All results](#results)
 
 ## The problem
 Offices, malls, campuses and fleet depots all want more EV chargers, and the chargers plug into the same grid connection as the building.
@@ -199,6 +199,8 @@ Preprocessing only transforms real data (time zones, cleaning, ≤ 3 h gap filli
 $env:PORTFOLIO_SHARE="0.9"; .\.venv\Scripts\python.exe scripts\portfolio_study.py run   # tighter connection
 $env:TARIFF="pge-b-19_2026"; .\.venv\Scripts\python.exe scripts\final_benchmark.py      # under PG&E B-19
 .\.venv\Scripts\python.exe scripts\ocpp_demo.py                  # the plan sent to 24 chargers over OCPP 1.6J
+.\.venv\Scripts\python.exe scripts\export_demo.py                # data for the web demo (docs/demo/data.json)
+.\.venv\Scripts\python.exe scripts\make_landing.py               # the landing page (docs/index.html)
 ```
 Long studies can also run on Kaggle's free machines: `python scripts/kaggle_run.py study` (see the script).
 

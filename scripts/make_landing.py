@@ -19,7 +19,6 @@ from headroom.config import DATA, ROOT  # noqa: E402
 from headroom.tariff import load_gold  # noqa: E402
 
 REPO = "https://github.com/SahanaGaneshvel/META"
-APP = "APP_LINK"      # filled in once the app is deployed
 VIDEO = "VIDEO_LINK"  # filled in once the video is uploaded
 
 
@@ -75,7 +74,7 @@ def main() -> None:
         "WITHOUT": str(n["without"]), "GAIN": f"+{n['with'] / n['without'] - 1:.0%}", "BUILDINGS": str(n["buildings"]),
         "SITES": str(n["sites"]), "MORE": f"{n['more']:.0%}", "MEDIAN": f"+{n['median']:.0%}",
         "BUILDING_PATH": c["building"], "EV_PATH": c["ev"], "LIMIT_Y": c["limit"], "PEAK_X": c["peak_x"],
-        "PEAK_W": c["peak_w"], "REPO": REPO, "APP": APP, "VIDEO": VIDEO, "EXTRA": f"${n['extra']:,.0f}",
+        "PEAK_W": c["peak_w"], "REPO": REPO, "VIDEO": VIDEO, "EXTRA": f"${n['extra']:,.0f}",
         "SERVED36": f"{n['served36']:.0%}", "VIOL36": str(n["viol36"]),
     }.items():
         html = html.replace("{{" + key + "}}", value)
