@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Headroom</title>
 <meta name="description" content="An AI operator that fits more EV chargers on the grid connection a building already has.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230a0f1c'/%3E%3Cpath d='M2.5 4.5H21.5' stroke='%235eead4' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='3.5' y='13' width='4' height='8' rx='1' fill='%23e8ecf4'/%3E%3Crect x='10' y='9.5' width='4' height='11.5' rx='1' fill='%23e8ecf4'/%3E%3Crect x='16.5' y='15' width='4' height='6' rx='1' fill='%23e8ecf4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -22,7 +23,7 @@
 
   header { display:flex; justify-content:space-between; align-items:center; padding:26px 0; }
   .logo { font-weight:600; letter-spacing:.02em; font-size:17px; display:flex; align-items:center; gap:10px; }
-  .mark { width:22px; height:22px; border-radius:6px; background:linear-gradient(135deg, var(--accent), var(--building)); }
+  .mark { width:24px; height:24px; }
   nav a { margin-left:26px; color:var(--muted); font-size:14px; transition:color .2s; }
   nav a:hover { color:var(--ink); }
 
@@ -112,7 +113,14 @@
 <body>
 <div class="wrap">
   <header class="rise">
-    <div class="logo"><div class="mark"></div>Headroom</div>
+    <div class="logo">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+        <!-- the grid connection limit, and the building's load leaving room under it -->
+        <path d="M2.5 4.5 H21.5" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
+        <rect x="3.5" y="13" width="4" height="8" rx="1" fill="#e8ecf4"/>
+        <rect x="10" y="9.5" width="4" height="11.5" rx="1" fill="#e8ecf4"/>
+        <rect x="16.5" y="15" width="4" height="6" rx="1" fill="#e8ecf4"/>
+      </svg>Headroom</div>
     <nav><a href="{{VIDEO}}">Demo video</a><a href="{{APP}}">Live app</a><a class="keep" href="{{REPO}}">GitHub</a></nav>
   </header>
 
