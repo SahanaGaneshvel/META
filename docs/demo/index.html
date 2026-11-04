@@ -194,7 +194,14 @@
   .tile .k { color:var(--muted); font-size:13px; margin-top:4px; line-height:1.45; }
 
 
-  /* 0 · in plain words */
+  /* how a site uses it: the numbers in the you-give / you-get table */
+function useFill(D) {
+  const R = D.results, v = { with: R.chargers_headroom, without: R.chargers_standard, served: Math.round(R.served * 100) + "%",
+    violations: R.violations, saving: Math.round((1 - R.headroom_usd / R.standard_usd) * 100) + "%" };
+  document.querySelectorAll("[data-k]").forEach(e => e.textContent = v[e.dataset.k]);
+}
+
+/* 0 · in plain words */
   .story { display:grid; grid-template-columns:1.2fr 1fr; gap:0; overflow:hidden; }
   .story .stage { padding:26px; border-right:1px solid var(--line); min-height:330px; display:flex; align-items:center; }
   .story .stage svg { width:100%; height:auto; }
@@ -210,6 +217,26 @@
   .fadein { animation:rise .55s ease both; }
   @media (max-width:900px) { .story { grid-template-columns:1fr; } .story .stage { border-right:0; border-bottom:1px solid var(--line); } }
 
+
+  /* you give -> Headroom does -> you get */
+  .io {  display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; margin-top:34px; position:relative; }
+  .io > div { padding:26px 24px; position:relative; }
+  .io > div + div { border-left:1px solid var(--line); }
+  .io > div + div::before { content:"→"; position:absolute; left:-15px; top:26px; width:28px; height:28px; border-radius:99px;
+                            display:grid; place-items:center; background:var(--bg); border:1px solid var(--line); color:var(--accent); font-size:14px; z-index:1; }
+  .io h4 { color:var(--accent); font-size:12.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; }
+  .io ul { list-style:none; padding:0; margin-top:14px; }
+  .io li { padding:10px 0; border-bottom:1px solid rgba(148,163,184,.08); font-size:15px; color:#dbe1ec; }
+  .io li:last-child { border-bottom:0; } .io li small { display:block; color:var(--muted); font-size:13px; margin-top:2px; }
+  .io li b { color:var(--ink); font-weight:600; }
+  .example { margin-top:14px; padding:18px 22px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:14.5px; color:#cbd3e1; }
+  .example .tag2 { flex:none; padding:4px 10px; border-radius:99px; font-size:12px; color:var(--accent); border:1px solid rgba(94,234,212,.35); }
+  @media (max-width:880px) { .io {  grid-template-columns:1fr; } .io > div + div { border-left:0; border-top:1px solid var(--line); }
+    .io > div + div::before { left:24px; top:-15px; content:"↓"; } }
+
+  .kicker { color:var(--accent); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:500; }
+  .panel { border:1px solid var(--line); border-radius:18px; background:linear-gradient(180deg, rgba(15,22,38,.9), rgba(10,15,28,.9)); }
+  #use h2 { font-size:clamp(24px,3vw,32px); line-height:1.18; font-weight:600; letter-spacing:-.02em; margin-top:10px; max-width:760px; }
   footer { color:var(--muted); font-size:13px; text-align:center; padding:30px 0 46px; margin-top:70px; border-top:1px solid var(--line); line-height:1.8; }
   footer a { color:var(--ink); }
 
@@ -234,7 +261,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 4.5 H21.5" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
         <rect x="3.5" y="13" width="4" height="8" rx="1" fill="#e8ecf4"/><rect x="10" y="9.5" width="4" height="11.5" rx="1" fill="#e8ecf4"/>
         <rect x="16.5" y="15" width="4" height="6" rx="1" fill="#e8ecf4"/></svg>Headroom</a>
-    <nav><a href="../">Overview</a><a class="here" href="./">Demo</a><a class="keep" href="https://github.com/SahanaGaneshvel/META">GitHub</a></nav>
+    <nav><a href="../">Overview</a><a class="here" href="./">Walkthrough</a><a href="https://headroom-ev.streamlit.app/">App</a><a class="keep" href="https://github.com/SahanaGaneshvel/META">GitHub</a></nav>
   </header>
 
   <section class="hero" id="start" data-chapter="Start">
@@ -244,8 +271,8 @@
       <p>Follow a real building through the 21 June 2017 heat wave. See why EV chargers and buildings collide on the grid, how
         Headroom fits more chargers on the connection the building already has, and how an AI operator built on Meta's Muse Spark
         runs it.</p>
-      <div class="cta"><a class="btn main" href="#plain">Start the walkthrough</a><a class="btn" href="#proof">Skip to the results</a></div>
-      <div class="scroll-hint"><i></i>About 5 minutes · 7 chapters</div>
+      <div class="cta"><a class="btn main" href="#use">Start the walkthrough</a><a class="btn" href="#proof">Skip to the results</a></div>
+      <div class="scroll-hint"><i></i>About 5 minutes · 8 chapters</div>
     </div>
     <div class="facts">
       <div class="fact reveal d1"><b>Building</b><span>A UC Berkeley building, metered every hour<small>Building Data Genome 2, 2016–2017</small></span></div>
@@ -253,6 +280,31 @@
       <div class="fact reveal d3"><b>Bill</b><span>The utility's own published tariff<small>City of Palo Alto E-4 TOU, 2026 rates</small></span></div>
       <div class="fact reveal d3"><b>AI</b><span>Meta's Muse Spark, Voice Transcribe and Glimmer<small>real recorded answers, every number checked</small></span></div>
     </div>
+  </section>
+
+  <section class="part" id="use" data-chapter="How a site uses it" style="padding-top:20px">
+    <div class="kicker reveal">How a site uses it</div>
+    <h2 class="reveal t1">You give it your meter data. It tells you how many chargers fit, then runs them.</h2>
+    <div class="panel io reveal t2">
+      <div><h4>You give</h4><ul>
+        <li><b>Your building's meter data</b><small>one year, downloaded from the utility (a Green Button file)</small></li>
+        <li><b>Your utility tariff</b><small>the PDF; Muse Spark reads it and checks it reproduces your bill</small></li>
+        <li><b>Your grid connection size and chargers</b><small>for example 1,000 kW, and how many chargers you want</small></li>
+        <li><b>Questions, any time</b><small>by text or voice: "6 vans need 40 kWh by 6 am. Can we do it?"</small></li></ul></div>
+      <div><h4>Headroom does</h4><ul>
+        <li><b>Simulates real drivers at your building</b><small>months of charging, 15 minutes at a time, before you buy anything</small></li>
+        <li><b>Plans every 15 minutes, once installed</b><small>forecasts the building, charges in the room it leaves</small></li>
+        <li><b>Guarantees the limit</b><small>a safety layer nothing can override</small></li>
+        <li><b>Sends each charger its power</b><small>over OCPP, which commercial chargers already speak</small></li></ul></div>
+      <div><h4>You get</h4><ul>
+        <li><b>How many chargers fit</b><small>"your connection fits <span data-k="with"></span>, not <span data-k="without"></span>", with the monthly cost</small></li>
+        <li><b>Every driver fully charged</b><small><span data-k="served"></span> of the energy they asked for, <span data-k="violations"></span> times over the limit</small></li>
+        <li><b>A lower bill</b><small><span data-k="saving"></span> lower demand charges than standard smart charging</small></li>
+        <li><b>Checked answers</b><small>"Yes: 240 kWh needed, 409 kWh deliverable without a new peak."</small></li></ul></div>
+    </div>
+    <div class="panel example reveal t3"><span class="tag2">Real example</span>A UC Berkeley building's real meter data, Palo Alto's
+      tariff and a 1,000 kW connection, with real Palo Alto drivers: <b style="color:var(--ink)"><span data-k="with"></span> chargers fit instead of <span data-k="without"></span></b>,
+      every driver gets <span data-k="served"></span> of their energy, and demand charges fall <span data-k="saving"></span>.</div>
   </section>
 
   <section class="part" id="plain" data-chapter="The idea">
@@ -483,7 +535,7 @@ function el(tag, attrs = {}, parent) {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
 
-fetch("data.json").then(r => r.json()).then(D => { plain(D); problem(D); how(D); operator(D); proof(D); built(D); journey(); });
+fetch("data.json").then(r => r.json()).then(D => { useFill(D); plain(D); problem(D); how(D); operator(D); proof(D); built(D); journey(); });
 
 /* a day chart: x = 96 quarter hours, y = kW */
 function dayFrame(svg, D, { y0 = 450, y1 = 1050, h = 340, left = 46, bottom = 30, W = 1000, fs = 12 } = {}) {

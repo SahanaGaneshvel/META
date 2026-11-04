@@ -168,6 +168,22 @@
     .flowsteps { grid-template-columns:1fr 1fr; row-gap:28px; } .flowsteps::before, .flowsteps::after { display:none; }
     .note { flex-direction:column; align-items:flex-start; }
   }
+
+  /* you give -> Headroom does -> you get */
+  .io { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; margin-top:34px; position:relative; }
+  .io > div { padding:26px 24px; position:relative; }
+  .io > div + div { border-left:1px solid var(--line); }
+  .io > div + div::before { content:"→"; position:absolute; left:-15px; top:26px; width:28px; height:28px; border-radius:99px;
+                            display:grid; place-items:center; background:var(--bg); border:1px solid var(--line); color:var(--accent); font-size:14px; z-index:1; }
+  .io h4 { color:var(--accent); font-size:12.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; }
+  .io ul { list-style:none; padding:0; margin-top:14px; }
+  .io li { padding:10px 0; border-bottom:1px solid rgba(148,163,184,.08); font-size:15px; color:#dbe1ec; }
+  .io li:last-child { border-bottom:0; } .io li small { display:block; color:var(--muted); font-size:13px; margin-top:2px; }
+  .io li b { color:var(--ink); font-weight:600; }
+  .example { margin-top:14px; padding:18px 22px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:14.5px; color:#cbd3e1; }
+  .example .tag2 { flex:none; padding:4px 10px; border-radius:99px; font-size:12px; color:var(--accent); border:1px solid rgba(94,234,212,.35); }
+  @media (max-width:880px) { .io { grid-template-columns:1fr; } .io > div + div { border-left:0; border-top:1px solid var(--line); }
+    .io > div + div::before { left:24px; top:-15px; content:"↓"; } }
   @media (max-width:780px) {
     .slide { grid-template-columns:1fr; gap:26px; padding-bottom:84px; }
     nav a:not(.keep) { display:none; }
@@ -193,7 +209,7 @@
         <rect x="10" y="9.5" width="4" height="11.5" rx="1" fill="#e8ecf4"/>
         <rect x="16.5" y="15" width="4" height="6" rx="1" fill="#e8ecf4"/>
       </svg>Headroom</div>
-    <nav><a href="demo/">Demo</a><a href="{{VIDEO}}">Video</a><a class="keep" href="{{REPO}}">GitHub</a></nav>
+    <nav><a href="demo/">Walkthrough</a><a href="https://headroom-ev.streamlit.app/">App</a><a href="{{VIDEO}}">Video</a><a class="keep" href="{{REPO}}">GitHub</a></nav>
   </header>
 
   <section class="hero">
@@ -216,6 +232,31 @@
       <span class="lab l2">a real building, 21 June 2017 · midnight to 11 pm</span>
       <span class="lab l3">charging in the room it leaves</span>
     </div>
+  </section>
+
+  <section class="block" id="use">
+    <div class="kicker on-view">How a site uses it</div>
+    <h2 class="on-view t1">You give it your meter data. It tells you how many chargers fit, then runs them.</h2>
+    <div class="panel io on-view t2">
+      <div><h4>You give</h4><ul>
+        <li><b>Your building's meter data</b><small>one year, downloaded from the utility (a Green Button file)</small></li>
+        <li><b>Your utility tariff</b><small>the PDF; Muse Spark reads it and checks it reproduces your bill</small></li>
+        <li><b>Your grid connection size and chargers</b><small>for example 1,000 kW, and how many chargers you want</small></li>
+        <li><b>Questions, any time</b><small>by text or voice: "6 vans need 40 kWh by 6 am. Can we do it?"</small></li></ul></div>
+      <div><h4>Headroom does</h4><ul>
+        <li><b>Simulates real drivers at your building</b><small>months of charging, 15 minutes at a time, before you buy anything</small></li>
+        <li><b>Plans every 15 minutes, once installed</b><small>forecasts the building, charges in the room it leaves</small></li>
+        <li><b>Guarantees the limit</b><small>a safety layer nothing can override</small></li>
+        <li><b>Sends each charger its power</b><small>over OCPP, which commercial chargers already speak</small></li></ul></div>
+      <div><h4>You get</h4><ul>
+        <li><b>How many chargers fit</b><small>"your connection fits {{WITH}}, not {{WITHOUT}}", with the monthly cost</small></li>
+        <li><b>Every driver fully charged</b><small>{{SERVED}} of the energy they asked for, {{VIOLATIONS}} times over the limit</small></li>
+        <li><b>A lower bill</b><small>{{SAVING}} lower demand charges than standard smart charging</small></li>
+        <li><b>Checked answers</b><small>"Yes: 240 kWh needed, 409 kWh deliverable without a new peak."</small></li></ul></div>
+    </div>
+    <div class="panel example on-view t3"><span class="tag2">Real example</span>A UC Berkeley building's real meter data, Palo Alto's
+      tariff and a 1,000 kW connection, with real Palo Alto drivers: <b style="color:var(--ink)">{{WITH}} chargers fit instead of {{WITHOUT}}</b>,
+      every driver gets {{SERVED}} of their energy, and demand charges fall {{SAVING}}.</div>
   </section>
 
   <div class="carousel rise d4" id="car" aria-roledescription="carousel">
@@ -385,7 +426,7 @@
   <section class="panel closing on-view">
     <h2>See one real day, step by step.</h2>
     <p>The problem, every 15-minute decision, the AI operator's real answers, and how a site would adopt it.</p>
-    <div class="cta"><a class="btn main" href="demo/">Open the walkthrough</a><a class="btn" href="{{REPO}}">Read the code</a></div>
+    <div class="cta"><a class="btn main" href="demo/">Open the walkthrough</a><a class="btn" href="https://headroom-ev.streamlit.app/">Open the app</a><a class="btn" href="{{REPO}}">Read the code</a></div>
   </section>
 
   <footer>Meta Global AI Developer Hackathon 2026 · <a href="{{REPO}}">Source on GitHub</a> · MIT licence<br>

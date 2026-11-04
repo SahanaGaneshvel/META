@@ -2,35 +2,102 @@
 
     .venv\\Scripts\\streamlit run app.py
 
-Pages: Overview (the story in ten seconds) · Live replay · Ask the operator · Check any building ·
-Verified AI · Proof. Every headline number is read from a result file in data/results/.
+Start · Watch it run · Ask the operator · What the camera sees · Check your building · How the AI is
+checked · Proof. Every headline number is read from a result file in data/results/; every model answer
+is a real recorded one unless a Meta Model API key is set (then Live calls are possible).
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import time
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from PIL import Image
 
 from headroom.agent.operator import DEMO_REQUESTS, SYSTEM, run
 from headroom.agent.site import ReplaySite
 from headroom.capacity import hosting_capacity
-from headroom.config import DATA, LOCAL_TZ
+from headroom.config import DATA, LOCAL_TZ, ROOT
 from headroom.meta.client import FailoverClient, ModelClient, RecordingMissing, RoleConfig, transcribe
 from headroom.tariff import load_gold
 
-st.set_page_config(page_title="Headroom", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Headroom", page_icon=str(ROOT / "assets" / "icon.png"), layout="wide")
 RESULTS = DATA / "results"
 NAMES = {"headroom": "Headroom", "llf": "Standard smart charging", "static_cap": "Static cap"}
-COLORS = {"headroom": "#15803d", "llf": "#d97706", "static_cap": "#9ca3af", "building": "#2563eb"}
+COLORS = {"headroom": "#5eead4", "llf": "#f59e0b", "static_cap": "#94a3b8", "building": "#818cf8"}
 TARIFF_NAMES = {"cpau-e-4-tou-2026": "Palo Alto E-4 TOU", "cpau-e-7-tou-2026": "Palo Alto E-7 TOU",
                 "pge-b-19-2026": "PG&E B-19"}
 DAYS = {"2017-06-21": "21 June 2017 · heat-wave alert", "2017-06-20": "20 June 2017 · heat-wave alert",
         "2017-06-14": "14 June 2017 · ordinary weekday"}
 SPIKE_KW = 50
+
+STYLE = """<style>
+  .block-container { padding-top:2.4rem; padding-bottom:4rem; max-width:1180px; }
+  header[data-testid="stHeader"] { background:transparent; }
+  [data-testid="stMetricValue"] { font-weight:600; letter-spacing:-.02em; }
+  [data-testid="stMetricLabel"] p { color:#8b96aa; }
+  [data-testid="stSidebarNav"] a span { font-size:14.5px; }
+  .hr-eyebrow { color:#5eead4; font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:500; }
+  .hr-title { font-size:clamp(28px,3.6vw,42px); font-weight:600; letter-spacing:-.025em; line-height:1.12; margin:.35rem 0 .55rem; color:#e8ecf4; }
+  .hr-sub { color:#8b96aa; font-size:17px; line-height:1.6; max-width:780px; margin-bottom:.4rem; }
+  .hr-h { font-size:20px; font-weight:600; letter-spacing:-.01em; margin:1.8rem 0 .2rem; color:#e8ecf4; }
+  .hr-note { color:#8b96aa; font-size:13.5px; line-height:1.6; }
+  .hr-grid { display:grid; gap:12px; }
+  .hr-card { border:1px solid #1e293b; border-radius:16px; background:linear-gradient(180deg,#121b2d,#0d1424); padding:20px 22px; }
+  .hr-card h4 { font-size:12.5px; color:#5eead4; letter-spacing:.12em; text-transform:uppercase; font-weight:500; margin:0 0 10px; }
+  .hr-card b { color:#e8ecf4; } .hr-card p, .hr-card li { color:#cbd3e1; font-size:14.5px; line-height:1.55; }
+  .hr-card ul { list-style:none; padding:0; margin:0; } .hr-card li { padding:7px 0; border-bottom:1px solid rgba(148,163,184,.08); }
+  .hr-card li:last-child { border-bottom:0; } .hr-card li small { display:block; color:#8b96aa; font-size:12.5px; }
+  .hr-io { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .hr-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .hr-step .n { width:30px; height:30px; border-radius:99px; display:grid; place-items:center; font-size:13px; font-weight:600;
+                color:#5eead4; border:1px solid rgba(94,234,212,.35); background:rgba(45,212,191,.08); margin-bottom:10px; }
+  .hr-step h5 { font-size:16px; font-weight:600; margin:0 0 4px; color:#e8ecf4; }
+  .hr-pill { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:99px; font-size:13px; color:#cbd3e1;
+             border:1px solid #1e293b; background:#111a2b; }
+  .hr-pill i { width:8px; height:8px; border-radius:99px; display:inline-block; }
+  .hr-big { font-size:56px; font-weight:600; letter-spacing:-.03em; line-height:1; }
+  .hr-rise { animation:hrRise .55s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes hrRise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  .hr-bay { display:grid; grid-template-columns:132px 1fr; gap:14px; align-items:center; }
+  .hr-bay img { width:132px; border-radius:10px; border:1px solid #1e293b; }
+  .hr-chip { display:inline-block; padding:3px 10px; border-radius:99px; font-size:12.5px; font-weight:500; }
+  .hr-chip.blocked { background:rgba(251,113,133,.14); color:#fb7185; border:1px solid rgba(251,113,133,.4); }
+  .hr-chip.charging { background:rgba(45,212,191,.12); color:#5eead4; border:1px solid rgba(94,234,212,.4); }
+  .hr-chip.free { background:rgba(148,163,184,.10); color:#cbd3e1; border:1px solid #1e293b; }
+  .hr-chip.check { background:rgba(251,191,36,.12); color:#fbbf24; border:1px solid rgba(251,191,36,.4); }
+  @media (max-width:900px) { .hr-io, .hr-steps { grid-template-columns:1fr; } }
+</style>"""
+
+
+# ------------------------------------------------------------------------------------------ helpers
+
+def hero(eyebrow: str, title: str, sub: str = "") -> None:
+    st.html(f'<div class="hr-rise"><div class="hr-eyebrow">{eyebrow}</div><div class="hr-title">{title}</div>'
+            + (f'<div class="hr-sub">{sub}</div>' if sub else "") + "</div>")
+
+
+def heading(text: str) -> None:
+    st.html(f'<div class="hr-h">{text}</div>')
+
+
+def styled(fig: go.Figure, height: int = 400) -> go.Figure:
+    fig.update_layout(height=height, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                      font=dict(family="Inter, sans-serif", color="#8b96aa", size=12),
+                      margin=dict(l=64, r=16, t=30, b=10), hoverlabel=dict(bgcolor="#111a2b", font_color="#e8ecf4"),
+                      legend=dict(orientation="h", y=-0.18, font=dict(color="#cbd3e1")))
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.08)", zeroline=False, linecolor="rgba(148,163,184,.2)")
+    fig.update_yaxes(gridcolor="rgba(148,163,184,.08)", zeroline=False)
+    return fig
+
+
+def md(text: str) -> str:
+    """Show $ amounts as money, not as the start of a math formula (Streamlit markdown reads $...$ as LaTeX)."""
+    return text.replace("$", r"\$")
 
 
 # ------------------------------------------------------------------------------------------ data
@@ -67,9 +134,8 @@ def headline() -> dict:
                    buildings_more=float((both["extra_chargers"] > 0).mean()))
     spec = load_gold("e-4-tou_2026")
     summer = next(x for x in spec.seasons if 7 in x.months)
-    peak_energy = max(r.usd_per_kwh for r in summer.energy)
     out["spike_usd"] = SPIKE_KW * sum(d.usd_per_kw for d in summer.demand)
-    out["spike_energy_usd"] = SPIKE_KW * 0.25 * peak_energy
+    out["spike_energy_usd"] = SPIKE_KW * 0.25 * max(r.usd_per_kwh for r in summer.energy)
     return out
 
 
@@ -94,27 +160,29 @@ def month_to_date(site: ReplaySite, t: int) -> dict:
 def replay_chart(site: ReplaySite, frame: pd.DataFrame, now: pd.Timestamp, t_now: int, show_static: bool) -> go.Figure:
     fig = go.Figure()
     day0 = now.normalize()
-    fig.add_vrect(x0=day0 + pd.Timedelta(hours=16), x1=day0 + pd.Timedelta(hours=21), fillcolor="#fde68a",
-                  opacity=0.3, line_width=0, annotation_text="4–9 pm: priciest demand window",
-                  annotation_position="top left")
+    fig.add_vrect(x0=day0 + pd.Timedelta(hours=16), x1=day0 + pd.Timedelta(hours=21), fillcolor="#fbbf24",
+                  opacity=0.07, line_width=0, annotation_text="4–9 pm: priciest demand window",
+                  annotation_position="top left", annotation_font_color="#fbbf24")
     q = site.forecast[t_now]
     ahead = now + pd.to_timedelta(np.arange(q.shape[0]) * 15, unit="min")
     keep = ahead <= frame["time"].iloc[-1]
     fig.add_trace(go.Scatter(x=ahead[keep], y=q[keep, 3], line=dict(width=0), showlegend=False, hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=ahead[keep], y=q[keep, 0], fill="tonexty", fillcolor="rgba(37,99,235,0.12)",
+    fig.add_trace(go.Scatter(x=ahead[keep], y=q[keep, 0], fill="tonexty", fillcolor="rgba(129,140,248,0.16)",
                              line=dict(width=0), name="Building forecast (likely range)"))
     past = frame[frame["time"] <= now]
-    fig.add_trace(go.Scatter(x=past["time"], y=past["building"], name="Building alone",
-                             line=dict(color=COLORS["building"], width=1.5)))
+    fig.add_trace(go.Scatter(x=past["time"], y=past["building"], name="Building alone", fill="tozeroy",
+                             fillcolor="rgba(129,140,248,0.10)", line=dict(color=COLORS["building"], width=1.6)))
     for name in (["static_cap"] if show_static else []) + ["llf", "headroom"]:
-        fig.add_trace(go.Scatter(x=past["time"], y=past[name], name=f"Site with {NAMES[name] if name == 'headroom' else NAMES[name].lower()}",
-                                 line=dict(color=COLORS[name], width=3.5 if name == "headroom" else 2)))
-    fig.add_hline(y=site.scenario.service_kw, line_dash="dot", line_color="#dc2626",
-                  annotation_text="Grid connection limit", annotation_position="bottom right")
-    fig.add_vline(x=now, line_color="#111827", line_width=1)
-    fig.update_layout(height=420, margin=dict(l=10, r=10, t=30, b=10), yaxis_title="kW", hovermode="x unified",
-                      legend=dict(orientation="h", y=-0.18), plot_bgcolor="white")
-    fig.update_yaxes(gridcolor="#f1f5f9")
+        label = "Site with Headroom" if name == "headroom" else f"Site with {NAMES[name].lower()}"
+        fig.add_trace(go.Scatter(x=past["time"], y=past[name], name=label,
+                                 line=dict(color=COLORS[name], width=3.2 if name == "headroom" else 2)))
+    fig.add_hline(y=site.scenario.service_kw, line_dash="dot", line_color="#fb7185",
+                  annotation_text="Grid connection limit", annotation_position="bottom right",
+                  annotation_font_color="#fb7185")
+    fig.add_vline(x=now, line_color="rgba(232,236,244,.5)", line_width=1)
+    styled(fig, 430)
+    fig.update_layout(yaxis_title="kW", hovermode="x unified")
+    fig.update_yaxes(range=[450, 1050])
     return fig
 
 
@@ -128,7 +196,7 @@ def speak(text: str) -> None:
 
 @st.cache_data
 def live_available() -> bool:
-    """Live calls need a Meta Model API key in .env; without one the app only replays recordings."""
+    """Live calls need a Meta Model API key in .env; without one (as on the public link) the app only replays."""
     return bool(RoleConfig.from_env("spark").api_key)
 
 
@@ -144,111 +212,133 @@ def current_site() -> ReplaySite:
     return st.session_state[f"site_{month}"]
 
 
-def md(text: str) -> str:
-    """Show $ amounts as money, not as the start of a math formula (Streamlit markdown reads $...$ as LaTeX)."""
-    return text.replace("$", r"\$")
-
-
 # ------------------------------------------------------------------------------------------ pages
 
-def overview() -> None:
+def start() -> None:
     h = headline()
-    st.title("More EV chargers on the grid connection you already have")
-    st.markdown("Headroom runs a site's chargers in the room the building leaves, so owners can add chargers "
-                "**without a grid upgrade**, and know what each expansion will cost before they buy it.")
-
-    with st.container(border=True):
-        st.markdown("##### The problem")
-        st.markdown(md(f"Malls, offices and depots share **one meter** between the building and its chargers. "
-                    f"The utility bills the highest 15 minutes of the month: under Palo Alto's E-4 tariff, one "
-                    f"{SPIKE_KW} kW charging spike at 6 pm on a summer weekday adds **${h['spike_usd']:,.0f}** to the "
-                    f"bill, for about ${h['spike_energy_usd']:.0f} of electricity. So owners stop adding chargers, or "
-                    f"cap them and waste the room they have."))
-
+    hero("AI operator for EV charging", "More EV chargers on the grid connection you already have.",
+         "Headroom watches the building, charges the cars in the room it leaves, and guarantees the site never goes over "
+         "its limit. Meta's Muse Spark runs it day to day: the site manager just asks.")
     if "usd_headroom" in h:
-        st.markdown(f"##### Results on months the system never saw (May–Oct 2017, real data, 24 chargers)")
         cols = st.columns(4)
-        if "chargers_headroom" in h:
-            cols[0].metric("Chargers on the same 1,000 kW connection",
-                           f"{h['chargers_headroom']}", f"+{h['chargers_headroom'] - h['chargers_standard']} vs "
-                           f"{h['chargers_standard']} with standard smart charging")
-        cols[1].metric("Demand charges added by charging", f"${h['usd_headroom']:,.0f}/mo",
-                       f"-{h['saving']:.0%} vs standard smart charging", delta_color="inverse")
-        cols[2].metric("Drivers' energy delivered", f"{h['served']:.1%}")
-        cols[3].metric("Grid-limit violations", f"{h['violations']}", help="Guaranteed by a deterministic safety layer")
-        if "buildings" in h:
-            st.caption(f"Across {h['buildings']} other real buildings at {h['sites']} US sites: a median "
-                       f"{h['building_gain']:+.0%} more chargers on the same connection (see *Check any building*).")
+        cols[0].metric("Chargers that fit", f"{h['chargers_headroom']}",
+                       f"+{h['chargers_headroom'] - h['chargers_standard']} vs {h['chargers_standard']} standard",
+                       help="On the same 1,000 kW connection, every driver served: Headroom vs standard smart charging")
+        cols[1].metric("Demand charges", f"${h['usd_headroom']:,.0f}/mo", f"-{h['saving']:.0%} vs standard",
+                       delta_color="inverse", help="Demand charges added by charging, per month, at 24 chargers")
+        cols[2].metric("Drivers' energy delivered", f"{h['served']:.0%}")
+        cols[3].metric("Times over the grid limit", f"{h['violations']}")
+        st.caption("Held-out months (May–Oct 2017), real Palo Alto drivers, a real metered building, the utility's own tariff.")
 
-    st.markdown("##### How it works")
-    steps = st.columns(4)
-    for col, (title, text) in zip(steps, [
-        ("1 · See the building", "Forecasts the building's load for the next 24 hours, with a likely range."),
-        ("2 · Plan the charging", "Fills the room under the peak the month has already paid for; every driver "
-                                  "still gets their energy."),
-        ("3 · Guarantee the limit", "A safety layer nothing can override keeps the site under its grid connection."),
-        ("4 · Muse Spark runs the site", "Reads the tariff, answers the owner, watches the bays. Every number it "
-                                         "gives is checked against the math."),
-    ]):
-        with col.container(border=True, height="stretch"):
-            st.markdown(f"**{title}**")
-            st.caption(text)
+    heading("How a site uses it")
+    st.html(f"""<div class="hr-io hr-rise">
+      <div class="hr-card"><h4>You give</h4><ul>
+        <li><b>A year of meter data</b><small>the building's export from its utility (Green Button)</small></li>
+        <li><b>The utility tariff</b><small>the PDF; Muse Spark reads it and checks it reproduces the bill</small></li>
+        <li><b>Connection size and chargers</b><small>for example 1,000 kW and the chargers you want</small></li></ul></div>
+      <div class="hr-card"><h4>Headroom does</h4><ul>
+        <li><b>Simulates real drivers at your building</b><small>months of charging, before you buy anything</small></li>
+        <li><b>Plans every 15 minutes once installed</b><small>charges in the room the building leaves</small></li>
+        <li><b>Guarantees the limit and drives the chargers</b><small>a safety layer, then OCPP power limits</small></li></ul></div>
+      <div class="hr-card"><h4>You get</h4><ul>
+        <li><b>How many chargers fit</b><small>here {h.get('chargers_headroom', '–')} instead of {h.get('chargers_standard', '–')}</small></li>
+        <li><b>Every driver fully charged, a lower bill</b><small>{h.get('saving', 0):.0%} lower demand charges, 0 times over the limit</small></li>
+        <li><b>Checked answers to any question</b><small>"6 vans need 40 kWh by 6 am. Can we do it?"</small></li></ul></div>
+    </div>""")
 
-    st.markdown("##### Explore")
-    links = st.columns(5)
-    links[0].page_link(PAGES["replay"], label="Watch a heat-wave day", icon="📈")
-    links[1].page_link(PAGES["operator"], label="Ask the operator", icon="💬")
-    links[2].page_link(PAGES["check"], label="Check any building", icon="🏢")
-    links[3].page_link(PAGES["verified"], label="How the AI is checked", icon="✅")
-    links[4].page_link(PAGES["proof"], label="Proof and data", icon="📊")
+    heading("Try it")
+    a, b, c = st.columns(3)
+    with a.container(border=True):
+        st.markdown("**Check your building**")
+        st.caption("Upload a meter file, or use a real sample building, and see how many chargers fit.")
+        st.page_link(PAGES["check"], label="Open Check", icon=":material/apartment:")
+    with b.container(border=True):
+        st.markdown("**Watch it run**")
+        st.caption("Press play on a real heat-wave day and watch every 15-minute decision.")
+        st.page_link(PAGES["replay"], label="Open the replay", icon=":material/play_circle:")
+    with c.container(border=True):
+        st.markdown("**Ask the operator**")
+        st.caption("Muse Spark's real recorded answers, each number checked. Cut the internet to see Glimmer.")
+        st.page_link(PAGES["operator"], label="Open the operator", icon=":material/forum:")
+
+    heading("Every 15 minutes, four steps")
+    st.html("""<div class="hr-steps hr-rise">
+      <div class="hr-card hr-step"><div class="n">1</div><h5>See the building</h5><p>A 24-hour forecast with a calibrated worst case.</p></div>
+      <div class="hr-card hr-step"><div class="n">2</div><h5>Plan the charging</h5><p>A linear program fills the room under the peak already paid for.</p></div>
+      <div class="hr-card hr-step"><div class="n">3</div><h5>Guarantee the limit</h5><p>A safety layer nothing above it can override.</p></div>
+      <div class="hr-card hr-step"><div class="n">4</div><h5>Send to the chargers</h5><p>OCPP power limits that expire, so control fails safe.</p></div>
+    </div>""")
 
 
 def replay() -> None:
-    st.title("A real heat-wave day, replayed")
-    st.caption("Palo Alto garage sessions at 4× today's chargers (24) · a UC Berkeley building's metered load · "
-               "Palo Alto's E-4 TOU tariff · the CAISO Flex Alert of 20–21 June 2017")
+    hero("Watch it run", "A real heat-wave day, every 15 minutes.",
+         "Palo Alto drivers at 24 chargers (4× today's garage), a UC Berkeley building's metered load and Palo Alto's "
+         "E-4 tariff, on the CAISO Flex Alert of 21 June 2017. Press play to watch Headroom decide.")
     top = st.columns([2, 3])
     day = top[0].selectbox("Day", list(DAYS), format_func=DAYS.get, index=list(DAYS).index(st.session_state["day"]))
-    st.session_state["day"] = day
+    if day != st.session_state["day"]:
+        st.session_state["day"] = day
+        st.session_state.pop("replay_t", None)
     site = current_site()
     times = list(pd.date_range(f"{day} 00:00", f"{day} 23:45", freq="15min"))
-    at = pd.Timestamp(f"{day} {st.query_params.get('at', '18:00')}").floor("15min")  # ?at=14:00 opens there
-    now = top[1].select_slider("Time of day", options=times, value=at if at in times else times[72],
-                               format_func=lambda t: t.strftime("%H:%M"))
-    site.now_local = now.strftime("%Y-%m-%dT%H:%M")
-    t_now = site.t
-
-    bills = month_to_date(site, t_now)
-    m = st.columns(4)
-    m[0].metric("Building now", f"{site.scenario.building_kw[t_now - 1]:,.0f} kW")
-    m[1].metric("Cars plugged in", int(((site.scenario.arrive <= t_now) & (site.scenario.depart > t_now)).sum()))
-    m[2].metric("Demand charges added by charging, this month", f"${bills['headroom']:,.0f}",
-                f"-${bills['llf'] - bills['headroom']:,.0f} vs standard smart charging", delta_color="inverse")
-    site_kw = site.scenario.building_kw[:t_now] + site.results["headroom"].ev_kw[:t_now]
-    m[3].metric("Grid-limit violations", int((site_kw > site.scenario.service_kw + 1e-6).sum()),
-                help="15-minute intervals this month so far with the site above its grid connection")
+    if "replay_t" not in st.session_state or st.session_state["replay_t"] not in times:
+        at = pd.Timestamp(f"{day} {st.query_params.get('at', '14:00')}").floor("15min")  # ?at=HH:MM opens there
+        st.session_state["replay_t"] = at if at in times else times[56]
+    playing = st.session_state.get("playing", False)
+    with top[1]:
+        if st.button("Pause" if playing else "Play the day", icon=":material/pause:" if playing else ":material/play_arrow:",
+                     type="primary"):
+            st.session_state["playing"] = not playing
+            if not playing and st.session_state["replay_t"] >= times[-1]:
+                st.session_state["replay_t"] = times[0]
+            st.rerun()
     show_static = st.toggle("Also show a fixed charging cap", value=False)
-    st.plotly_chart(replay_chart(site, day_frame(site, day), now, t_now, show_static), width="stretch")
-    with st.expander("How to read this chart"):
-        st.markdown("- **Blue**: the building on its own. **Shaded band**: Headroom's forecast of it from now on.\n"
-                    "- **Orange**: the same cars with standard smart charging, which can't see the building, so it "
-                    "charges into the building's peak.\n"
-                    "- **Green**: Headroom, which charges in the valleys and stays under the peak the month has "
-                    "already paid for. Drag the time slider to watch the day unfold.")
+
+    @st.fragment(run_every=0.9 if playing else None)
+    def day_view() -> None:
+        if st.session_state.get("playing"):
+            i = times.index(st.session_state["replay_t"])
+            if i + 1 < len(times):
+                st.session_state["replay_t"] = times[i + 1]
+            else:
+                st.session_state["playing"] = False
+        now = st.select_slider("Time of day", options=times, key="replay_t", format_func=lambda t: t.strftime("%H:%M"))
+        site.now_local = now.strftime("%Y-%m-%dT%H:%M")
+        t_now = site.t
+        bills = month_to_date(site, t_now)
+        m = st.columns(4)
+        m[0].metric("Building now", f"{site.scenario.building_kw[t_now - 1]:,.0f} kW")
+        m[1].metric("Cars plugged in", int(((site.scenario.arrive <= t_now) & (site.scenario.depart > t_now)).sum()))
+        m[2].metric("Demand charges this month", f"${bills['headroom']:,.0f}",
+                    f"-${bills['llf'] - bills['headroom']:,.0f} vs standard", delta_color="inverse",
+                    help="Demand charges added by charging so far this month, Headroom vs standard smart charging")
+        site_kw = site.scenario.building_kw[:t_now] + site.results["headroom"].ev_kw[:t_now]
+        m[3].metric("Grid-limit violations", int((site_kw > site.scenario.service_kw + 1e-6).sum()),
+                    help="15-minute intervals this month so far with the site above its grid connection")
+        st.plotly_chart(replay_chart(site, day_frame(site, day), now, t_now, show_static), width="stretch", theme=None, config={"displayModeBar": False})
+
+    day_view()
+    st.html('<div class="hr-note"><b style="color:#818cf8">Indigo</b>: the building on its own, and its forecast ahead '
+            '(the shaded band). <b style="color:#f59e0b">Amber</b>: the same cars with standard smart charging, which '
+            'can\'t see the building, so it charges into the evening peak. <b style="color:#5eead4">Teal</b>: Headroom, '
+            'which fills the quiet hours and stays under the peak the month has already paid for.</div>')
 
 
 def operator() -> None:
-    st.title("Ask the operator")
     link_up = not st.session_state.get("link_down", False)
-    st.markdown(("🟢 **Muse Spark** (cloud) is answering." if link_up else
-                 "🔌 Internet cut: **Muse Glimmer** on the site's own GPU is answering.") +
-                " It can only act through checked tools, and every number in its answer is traced to a tool result.")
+    hero("Ask the operator", "The site manager just asks. Meta's Muse Spark answers.",
+         "It can only act through checked tools, never the chargers, and every number it says is traced to a tool "
+         "result. These are real recorded answers; switch on <b>Cut the site's internet</b> in the sidebar to see "
+         "Muse Glimmer answer from the site's own GPU.")
+    st.html(f'<span class="hr-pill"><i style="background:{"#5eead4" if link_up else "#fb7185"}"></i>'
+            + ("<b>Muse Spark</b>&nbsp;answering from the cloud" if link_up else
+               "Internet cut · <b>Muse Glimmer</b>&nbsp;answering on site") + "</span>")
     site = current_site()
     client = FailoverClient("spark", "glimmer", mode="replay" if replay_mode() else "auto", link_up=link_up)
     history = st.session_state.setdefault("history", [{"role": "system", "content": SYSTEM}])
     shown = st.session_state.setdefault("shown", [])
     for msg in shown:
-        with st.chat_message(msg["role"]):
+        with st.chat_message(msg["role"], avatar=":material/person:" if msg["role"] == "user" else ":material/bolt:"):
             st.markdown(md(msg["text"]))
             if msg.get("note"):
                 st.caption(msg["note"])
@@ -262,16 +352,16 @@ def operator() -> None:
     request, ask_at = None, None
     if replay_mode() and asked < len(DEMO_REQUESTS) and st.session_state.get("day", "2017-06-21") == "2017-06-21":
         ask_at, text = DEMO_REQUESTS[asked]
-        if st.button(f"Ask: “{text}”", type="primary", icon="💬"):
+        if st.button(f"Ask: “{text}”", type="primary", icon=":material/forum:"):
             request = text
         else:
             ask_at = None
-        st.caption(f"Recorded conversation, question {asked + 1} of {len(DEMO_REQUESTS)} (replays real Muse Spark answers).")
+        st.caption(f"Recorded conversation, question {asked + 1} of {len(DEMO_REQUESTS)}: real Muse Spark answers, replayed.")
     elif replay_mode() and asked < len(DEMO_REQUESTS):
-        st.caption("The recorded conversation is on 21 June 2017: choose that day on *Live replay*.")
+        st.caption("The recorded conversation is on 21 June 2017: choose that day on *Watch it run*.")
     with st.expander("Speak instead"):
         voice = st.audio_input("Record a request", help="Muse Voice Transcribe turns it into text; Muse Spark answers")
-    if shown and st.button("Start over"):
+    if shown and st.button("Start over", icon=":material/restart_alt:"):
         st.session_state["history"], st.session_state["shown"] = [{"role": "system", "content": SYSTEM}], []
         for key in [k for k in st.session_state if k.startswith("site_")]:
             del st.session_state[key]  # a fresh copy of the month for this visitor only
@@ -292,7 +382,7 @@ def operator() -> None:
     try:
         if ask_at:
             site.now_local = ask_at  # the site time the question was recorded at
-        with st.spinner("Thinking…"):
+        with st.spinner("Checking with the tools…"):
             turn = run(site, request, history=history, client=client)
         st.session_state["history"] = turn.messages
         steps = [{"tool": s.tool, "result": s.result, "ok": s.ok} for s in turn.steps if s.kind == "tool"]
@@ -305,7 +395,7 @@ def operator() -> None:
         shown.append({"role": "assistant", "text": "There's no recorded answer for that question: the recorded "
                       "conversation is the question buttons above. " + (
                           "Switch **Model calls** to Live in the sidebar to ask anything." if live_available() else
-                          "Asking anything else needs a Meta Model API key (`MODEL_API_KEY` in `.env`).")})
+                          "This public demo replays recorded answers only.")})
     except ConnectionError:
         shown.append({"role": "assistant", "text": "No model is reachable right now. Charging carries on "
                       "unchanged: the planner and safety layer never depend on a model."})
@@ -314,56 +404,94 @@ def operator() -> None:
     st.rerun()
 
 
+def camera() -> None:
+    from headroom.agent.bays import decide, load_bays, observe, occupancy_accuracy
+
+    hero("What the camera sees", "A meter can't see a parked car that isn't charging. The camera can.",
+         "In the real Palo Alto data, cars sit plugged in but finished for 28.2% of the time. Muse Spark watches the bay "
+         "camera; a bay counts as blocked only if the camera sees a car <b>and</b> the charger reports no power.")
+    video = DATA / "video" / "lot_close_5fps.mp4"
+    left, right = st.columns([3, 2])
+    with left:
+        st.video(str(video))
+        st.caption("Public-domain parking-lot footage, 63 seconds; six bays marked as EV bays for illustration.")
+    with right:
+        st.html("""<div class="hr-card"><h4>What happens when you press the button</h4><ul>
+          <li><b>1 · The clip goes to Muse Spark</b><small>with a still of the bays, numbered</small></li>
+          <li><b>2 · It reports every bay</b><small>occupied, the vehicle, whether a cable is visible</small></li>
+          <li><b>3 · The chargers report their power</b><small>straight from the charger network</small></li>
+          <li><b>4 · Both must agree</b><small>a car, and no power flowing: then the bay is blocked</small></li></ul></div>""")
+        go_ = st.button("Run the camera check", type="primary", icon=":material/videocam:", width="stretch")
+    if not go_:
+        return
+    bays = load_bays("lot_close")
+    stage = st.container()
+    pause = lambda s: time.sleep(s)  # noqa: E731 - the stages appear one after another
+    with stage:
+        heading("1 · What Muse Spark receives")
+        frames = sorted((DATA / "video" / "frames").glob("frame*.jpg"))
+        cols = st.columns(len(frames) + 1)
+        for col, f in zip(cols, frames):
+            col.image(str(f), caption="a frame of the clip")
+        cols[-1].image(str(DATA / "video" / "lot_close.bays.png"), caption="the still, bays numbered")
+        pause(1.0)
+        try:
+            with st.spinner("Muse Spark is watching the clip…"):
+                report = observe(video, DATA / "video" / "lot_close.jpg", bays,
+                                 client=ModelClient("spark", mode="replay" if replay_mode() else "auto"))
+        except (RecordingMissing, RuntimeError) as exc:
+            st.warning(str(exc))
+            return
+        charger_kw = {b.number: 0.0 for b in bays}
+        charger_kw[3] = 6.1  # the charger on bay 3 reports a car charging
+        rows = decide(report, charger_kw)
+        still = Image.open(DATA / "video" / "lot_close.bays.png")
+        heading("2 · What it sees, bay by bay · 3 · what each charger reports · 4 · the decision")
+        grid = st.columns(3)
+        for k, (row, bay) in enumerate(zip(rows, bays)):
+            cam = row["camera"]
+            x0, y0, x1, y1 = bay.box
+            crop = still.crop((max(0, x0 - 10), max(0, y0 - 40), x1 + 10, y1 + 10))
+            with grid[k % 3].container(border=True):
+                st.image(crop, width="stretch")
+                st.markdown(f"**Bay {row['bay']}** · camera: {'a ' + cam['vehicle'] if cam['occupied'] else 'empty'}"
+                            f"{', cable ' + cam['plugged_in'] if cam['occupied'] else ''}")
+                st.markdown(f"Charger reports **{row['charger_kw']:.1f} kW**")
+                st.html(f'<span class="hr-chip {row["status"]}">{row["status"]}</span>'
+                        + (f' <span class="hr-note">{row["action"]}</span>' if row["action"] != "none" else ""))
+            pause(0.45)
+        acc = occupancy_accuracy(report, "lot_close")
+        blocked = sum(r["status"] == "blocked" for r in rows)
+        st.success(f"{blocked} blocked bays found and taken out of the charging plan · camera calls match hand labels "
+                   f"for {acc['correct']} of {acc['bays']} bays · Muse Spark's real recorded answer", icon=":material/check_circle:")
+
+
 def check_building() -> None:
     from headroom.check import check_meter, load_meter
 
     h = headline()
-    st.title("Check any building")
-    st.markdown("How many chargers fit on a building's **existing** connection? Upload its meter data and Headroom "
-                "simulates real drivers on it, with and without seeing the building.")
-    if "buildings" in h:
-        with st.container(border=True):
-            st.markdown(f"##### Tested on {h['buildings']} real buildings at {h['sites']} US sites")
-            a, b, c = st.columns(3)
-            a.metric("Median extra chargers, same connection", f"{h['building_gain']:+.0%}")
-            b.metric("Buildings where Headroom fits more", f"{h['buildings_more']:.0%}")
-            ps = pd.read_csv(RESULTS / "portfolio_summary.csv")
-            c.metric("Grid-limit violations at these sizes", int(ps["violations_at_reported_sizes"].sum()))
-            with st.expander("See every building"):
-                fig = go.Figure(go.Scatter(
-                    x=ps["chargers_standard_smart_charging"], y=ps["chargers_headroom"], mode="markers",
-                    text=ps["primaryspaceusage"].fillna("") + " · " + ps["site_id"],
-                    marker=dict(color=COLORS["headroom"], size=9, opacity=0.75)))
-                top = float(max(ps["chargers_headroom"].max(), ps["chargers_standard_smart_charging"].max()) + 2)
-                fig.add_trace(go.Scatter(x=[0, top], y=[0, top], mode="lines", hoverinfo="skip",
-                                         line=dict(color="#9ca3af", dash="dot")))
-                fig.update_layout(height=320, showlegend=False, margin=dict(l=10, r=10, t=10, b=10),
-                                  plot_bgcolor="white", xaxis_title="Chargers: standard smart charging",
-                                  yaxis_title="Chargers: Headroom")
-                st.plotly_chart(fig, width="stretch")
-                st.markdown("**Where the gain comes from:** a fixed cap keeps room for the building's rarest peak "
-                            "all year; Headroom only holds it back when the peak is coming. Buildings whose peak is "
-                            "brief (at most 20 hours a year within 10% of it) gained a median **+82%**; the rest "
-                            "about +10%. With a tighter connection (peak ÷ 0.9) the median gain rises to **+31%**.")
-                st.caption("Each dot is one real metered building (BDG2), screened on Jul–Aug 2017. Above the dotted "
-                           "line, Headroom fits more. Service size isn't in the data: estimated as the peak before "
-                           "those months ÷ 0.8 (the electrical-code continuous-load rule). The safety layer's allowance "
-                           "for a sudden rise in each building's load comes from that building's own past year; a "
-                           "fleet size that breaks the limit in any month is rejected. Method: scripts/portfolio_study.py")
-
-    st.markdown("##### Your building")
+    hero("Check your building", "How many chargers fit on your existing connection?",
+         "Upload a year of your building's meter data. Headroom simulates real Palo Alto drivers on it, month by month, "
+         "with standard smart charging and with Headroom, and tells you how many chargers each can host with every driver "
+         "charged and the site never over its limit.")
     sample = DATA / "samples" / "sample_building_green_button.csv"
-    left, right = st.columns([3, 2])
-    upload = left.file_uploader("Meter data (CSV)", type=["csv"],
-                                help="Green Button export from the utility, or any table with a timestamp and kW "
-                                     "or kWh: 5-, 15-, 30-minute or hourly readings, at least four months")
-    service = right.number_input("Grid connection size (kW)", min_value=0, value=0, step=50,
-                                 help="Leave at 0 to estimate it from your peak ÷ 0.8")
-    use_sample = sample.exists() and right.button("Try a sample building", icon="🏢")
+    a, b = st.columns([3, 2])
+    with a.container(border=True):
+        st.markdown("**1 · Your meter data**")
+        upload = st.file_uploader("Meter data (CSV)", type=["csv"], label_visibility="collapsed",
+                                  help="Green Button export from the utility, or any table with a timestamp and kW or kWh: "
+                                       "5-, 15-, 30-minute or hourly readings, at least four months")
+        use_sample = sample.exists() and st.button("Or try a real sample building", icon=":material/apartment:")
+    with b.container(border=True):
+        st.markdown("**2 · Your grid connection**")
+        service = st.number_input("Connection size (kW)", min_value=0, value=0, step=50,
+                                  help="Leave at 0 to estimate it from your peak ÷ 0.8 (the electrical-code rule)")
+        st.caption("Leave at 0 if you don't know it: Headroom estimates it from your peak, as the electrical code does.")
     raw = upload.getvalue() if upload is not None else (sample.read_bytes() if use_sample else None)
     if raw is None:
-        st.caption("Your file is used only for the calculation and isn't stored. The check simulates months of "
-                   "charging at many fleet sizes: a few minutes, up to half an hour for a large building.")
+        st.caption("Your file is used only for the calculation and isn't stored. A check simulates months of charging at "
+                   "many fleet sizes: a few minutes, longer for a large building. The sample answers instantly.")
+        context(h)
         return
     cache = RESULTS / "check_cache" / f"{hashlib.sha256(raw + str(service).encode()).hexdigest()[:16]}.json"
     status = None
@@ -392,18 +520,24 @@ def check_building() -> None:
                      "(a Green Button CSV export works).")
             return
     at_least = lambda key: "≥ " if answer.get(key) else ""  # noqa: E731 - the search stopped at its limit
+    std, hr = answer["chargers_standard_smart_charging"], answer["chargers_headroom"]
+    heading("3 · Your answer")
     with st.container(border=True):
-        a, b, c = st.columns(3)
-        a.metric("Chargers with standard smart charging",
-                 f"{at_least('standard_at_least')}{answer['chargers_standard_smart_charging']}")
-        b.metric("Chargers with Headroom", f"{at_least('headroom_at_least')}{answer['chargers_headroom']}",
-                 f"{answer['extra_chargers']:+d}")
-        c.metric("Grid-limit violations", answer.get("violations_at_reported_sizes", answer["service_violations"]))
+        st.html(f"""<div class="hr-rise" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div><div class="hr-note">With standard smart charging</div><div class="hr-big" style="color:#f59e0b">{at_least('standard_at_least')}{std}</div>
+            <div class="hr-note">chargers</div></div>
+          <div><div class="hr-note">With Headroom, on the same connection</div><div class="hr-big" style="color:#5eead4">{at_least('headroom_at_least')}{hr}</div>
+            <div class="hr-note">chargers · {hr - std:+d}, every driver charged, {answer.get('violations_at_reported_sizes', answer['service_violations'])} times over the limit</div></div>
+        </div>""")
+        fig = go.Figure(go.Bar(x=[std, hr], y=["Standard smart charging", "Headroom"], orientation="h",
+                               marker_color=[COLORS["llf"], COLORS["headroom"]], text=[std, hr], textposition="outside"))
+        styled(fig, 150).update_layout(margin=dict(l=10, r=48, t=6, b=6), showlegend=False)
+        fig.update_yaxes(showticklabels=False)
+        st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False})
         usd = answer.get("added_demand_usd_per_month_at_standard_capacity") or {}
         if "llf" in usd and "headroom" in usd:
-            st.markdown(md(f"At {answer['chargers_standard_smart_charging']} chargers, charging adds "
-                        f"**${usd['headroom']:,}/month** in demand charges with Headroom, versus ${usd['llf']:,} "
-                        f"with standard smart charging."))
+            st.markdown(md(f"At {std} chargers, charging adds **${usd['headroom']:,}/month** in demand charges with "
+                           f"Headroom, versus ${usd['llf']:,} with standard smart charging."))
         if "buildings" in h:
             st.markdown(f"For comparison: across the {h['buildings']} buildings tested, the median gain is "
                         f"**{h['building_gain']:+.0%}**."
@@ -415,22 +549,44 @@ def check_building() -> None:
                    f"≥ 99% of their energy in every month · E-4 TOU tariff · real Palo Alto driver sessions"
                    + (f" · safety allowance for a sudden load rise: {answer['ramp_allowance_kw']:,.0f} kW, from the "
                       f"building's past year" if answer.get("ramp_allowance_kw") else ""))
+    context(h)
+
+
+def context(h: dict) -> None:
+    if "buildings" not in h:
+        return
+    with st.expander(f"Tested on {h['buildings']} real buildings at {h['sites']} US sites"):
+        ps = pd.read_csv(RESULTS / "portfolio_summary.csv")
+        a, b, c = st.columns(3)
+        a.metric("Median extra chargers, same connection", f"{h['building_gain']:+.0%}")
+        b.metric("Buildings where Headroom fits more", f"{h['buildings_more']:.0%}")
+        c.metric("Grid-limit violations at these sizes", int(ps["violations_at_reported_sizes"].sum()))
+        fig = go.Figure(go.Scatter(x=ps["chargers_standard_smart_charging"], y=ps["chargers_headroom"], mode="markers",
+                                   text=ps["primaryspaceusage"].fillna("") + " · " + ps["site_id"],
+                                   marker=dict(color=COLORS["headroom"], size=9, opacity=0.8)))
+        top = float(max(ps["chargers_headroom"].max(), ps["chargers_standard_smart_charging"].max()) + 2)
+        fig.add_trace(go.Scatter(x=[0, top], y=[0, top], mode="lines", hoverinfo="skip", line=dict(color="#475569", dash="dot")))
+        styled(fig, 320).update_layout(showlegend=False, xaxis_title="Chargers: standard smart charging",
+                                       yaxis_title="Chargers: Headroom")
+        st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False})
+        st.caption("Each dot is one real metered building (BDG2), screened on Jul–Aug 2017. Above the dotted line, "
+                   "Headroom fits more. Buildings whose peak is brief gained a median +82%; with a tighter connection "
+                   "(peak ÷ 0.9) the median gain rises to +31%. Method: scripts/portfolio_study.py")
 
 
 def verified() -> None:
     from headroom.agent.tariff_reader import bill_check, field_accuracy
 
-    st.title("How the AI is checked")
-    st.markdown("Muse Spark does the reading and the talking; nothing it produces is used until a check passes.")
+    hero("How the AI is checked", "Nothing Muse Spark produces is used until a check passes.",
+         "It reads the utility's tariff into structured rates; they're accepted only if they reproduce the bill for every "
+         "month of real metered load. Its answers are traced number by number, and the camera check needs the charger "
+         "to agree.")
     site = current_site()
-
     with st.container(border=True):
-        st.markdown("##### Reading the utility's tariff")
-        st.caption("Muse Spark turns the tariff document into structured rates. They're accepted only if they "
-                   "reproduce the bill for every month of real metered load.")
+        st.markdown("**Reading the utility's tariff**")
         doc = st.segmented_control("Tariff", list(TARIFF_NAMES), default="cpau-e-4-tou-2026", required=True,
                                    format_func=TARIFF_NAMES.get)
-        if st.button("Read and verify", type="primary"):
+        if st.button("Read and verify", type="primary", icon=":material/fact_check:"):
             try:
                 with st.spinner("Muse Spark is reading the tariff…"):
                     out = site.read_tariff_document(doc)
@@ -449,41 +605,16 @@ def verified() -> None:
             bad.seasons[0].demand[0].usd_per_kw = 10.26  # only the commodity column: a classic misread
             acc, bills = field_accuracy(bad, gold), bill_check(bad, gold, site.site["building_kw"])
             st.markdown(md(f"Palo Alto E-4, reading only one column of the summer peak demand charge ($10.26 instead of "
-                        f"${gold.seasons[0].demand[0].usd_per_kw}): **{acc['correct']} of {acc['fields']} fields right, "
-                        f"but the bill is off by {bills['worst_error']:.1%} in {bills['worst_month']}, so it's rejected.**"))
-
-    with st.container(border=True):
-        from headroom.agent.bays import decide, load_bays, observe, occupancy_accuracy
-
-        st.markdown("##### Spotting blocked charging bays")
-        st.caption("A meter can't see a car that finished charging but still occupies the bay (28.2% of plugged-in "
-                   "time in the real Palo Alto data). Muse Spark watches the camera; a bay counts as blocked only "
-                   "if the camera sees a car **and** the charger reports no power.")
-        still = DATA / "video" / "lot_close.bays.png"
-        cols = st.columns([3, 2])
-        if still.exists():
-            cols[0].image(str(still), caption="Public-domain parking-lot footage; bays marked as EV bays for illustration")
-        if cols[1].button("Check the bays", type="primary"):
-            try:
-                with st.spinner("Muse Spark is watching the clip…"):
-                    bays = load_bays("lot_close")
-                    report = observe(DATA / "video" / "lot_close_5fps.mp4", DATA / "video" / "lot_close.jpg", bays,
-                                     client=ModelClient("spark", mode="replay" if replay_mode() else "auto"))
-                charger_kw = {b.number: 0.0 for b in bays}
-                charger_kw[3] = 6.1  # the charger on bay 3 reports a car charging
-                rows = pd.DataFrame(decide(report, charger_kw))
-                cols[1].dataframe(rows[["bay", "status", "charger_kw", "action"]], hide_index=True, width="stretch")
-                acc = occupancy_accuracy(report, "lot_close")
-                cols[1].caption(f"Camera calls vs. hand labels: {acc['correct']} of {acc['bays']} right")
-            except (RecordingMissing, RuntimeError) as exc:
-                cols[1].warning(str(exc))
+                           f"${gold.seasons[0].demand[0].usd_per_kw}): **{acc['correct']} of {acc['fields']} fields right, "
+                           f"but the bill is off by {bills['worst_error']:.1%} in {bills['worst_month']}, so it's rejected.**"))
+    st.page_link(PAGES["camera"], label="See the camera check", icon=":material/videocam:")
 
 
 def proof() -> None:
     h = headline()
-    st.title("Proof and data")
-    st.markdown("Everything below is measured on **held-out months** (May–Oct 2017) that nothing was tuned on, with "
-                "real data only. Each table is a file in `data/results/` produced by a script in `scripts/`.")
+    hero("Proof and data", "Measured on months nothing was tuned on.",
+         "Held-out months (May–Oct 2017) and real data only. Each table is a file in data/results/ produced by a script "
+         "in scripts/.")
     bench, capacity, calibration, chargers, calls, data = st.tabs(
         ["Benchmark", "Charger capacity", "Forecast calibration", "Charger control (OCPP)", "Model call log",
          "Data and assumptions"])
@@ -528,9 +659,9 @@ def proof() -> None:
                 o = pd.read_csv(other, index_col="controller")
                 b = o["added_demand_usd"]
                 st.markdown(md(f"**Same site on PG&E's B-19 tariff:** Headroom ${b['headroom']:,.0f}/month vs "
-                            f"${b['llf']:,.0f} for standard smart charging ({b['headroom'] / b['llf'] - 1:+.0%}), "
-                            f"{o.loc['headroom', 'energy_served']:.1%} of energy delivered, "
-                            f"{o.loc['headroom', 'service_violations']:.0f} violations."))
+                               f"${b['llf']:,.0f} for standard smart charging ({b['headroom'] / b['llf'] - 1:+.0%}), "
+                               f"{o.loc['headroom', 'energy_served']:.1%} of energy delivered, "
+                               f"{o.loc['headroom', 'service_violations']:.0f} violations."))
     with capacity:
         cap = RESULTS / "capacity_summary_test.csv"
         if cap.exists():
@@ -539,10 +670,10 @@ def proof() -> None:
             for name in ["static_cap", "llf", "headroom"]:
                 s = summary[summary["controller"] == name]
                 fig.add_trace(go.Scatter(x=s["n_ports"], y=s["months_drivers_served"], name=NAMES[name],
-                                         mode="lines+markers", line=dict(color=COLORS[name])))
-            fig.update_layout(height=320, yaxis_title="Share of months every driver was served", xaxis_title="Chargers",
-                              margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="white", yaxis_tickformat=".0%")
-            st.plotly_chart(fig, width="stretch")
+                                         mode="lines+markers", line=dict(color=COLORS[name], width=2.6)))
+            styled(fig, 340).update_layout(yaxis_title="Share of months every driver was served", xaxis_title="Chargers",
+                                           yaxis_tickformat=".0%")
+            st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False})
             if "chargers_headroom" in h:
                 st.caption(f"Hosting capacity on the same 1,000 kW connection: {h['chargers_headroom']} chargers with "
                            f"Headroom vs {h['chargers_standard']} with standard smart charging. scripts/capacity_study.py")
@@ -575,7 +706,7 @@ def proof() -> None:
             "re-use real recorded sessions on the extra ports.\n"
             "- **Building load:** Building Data Genome 2 (Miller et al., *Scientific Data* 2020), UC Berkeley "
             "building `Bear_education_Patricia`, hourly → 15-minute with an energy-preserving split.\n"
-            "- **Tariff:** City of Palo Alto Utilities E-4 TOU and E-7 TOU (2026), hand-checked.\n"
+            "- **Tariffs:** City of Palo Alto Utilities E-4 TOU and E-7 TOU (2026) and PG&E B-19 (2026), hand-checked.\n"
             "- **Grid alerts:** CAISO Flex Alert dates.\n"
             "- **Assumptions:** the building and the garage share a 1,000 kW connection (the two datasets come from "
             "neighbouring cities); 2026 prices on 2016–17 behaviour.\n"
@@ -585,21 +716,24 @@ def proof() -> None:
 # ------------------------------------------------------------------------------------------ app
 
 PAGES = {
-    "overview": st.Page(overview, title="Overview", icon="⚡", default=True),
-    "replay": st.Page(replay, title="Live replay", icon="📈"),
-    "operator": st.Page(operator, title="Ask the operator", icon="💬"),
-    "check": st.Page(check_building, title="Check any building", icon="🏢"),
-    "verified": st.Page(verified, title="How the AI is checked", icon="✅"),
-    "proof": st.Page(proof, title="Proof and data", icon="📊"),
+    "start": st.Page(start, title="Start", icon=":material/home:", url_path="start", default=True),
+    "replay": st.Page(replay, title="Watch it run", icon=":material/play_circle:", url_path="replay"),
+    "operator": st.Page(operator, title="Ask the operator", icon=":material/forum:", url_path="operator"),
+    "camera": st.Page(camera, title="What the camera sees", icon=":material/videocam:", url_path="camera"),
+    "check": st.Page(check_building, title="Check your building", icon=":material/apartment:", url_path="check_building"),
+    "verified": st.Page(verified, title="How the AI is checked", icon=":material/verified:", url_path="verified"),
+    "proof": st.Page(proof, title="Proof and data", icon=":material/analytics:", url_path="proof"),
 }
 
-with st.sidebar:
-    st.markdown("### ⚡ Headroom")
-    st.caption("More chargers, same connection")
-page = st.navigation(list(PAGES.values()))
+st.html(STYLE)
+st.logo(str(ROOT / "assets" / "logo.png"), icon_image=str(ROOT / "assets" / "icon.png"), size="large",
+        link="https://headroom-meta.vercel.app/")
+page = st.navigation({"": [PAGES["start"]],
+                      "See it work": [PAGES["replay"], PAGES["operator"], PAGES["camera"]],
+                      "Use it": [PAGES["check"]],
+                      "Trust": [PAGES["verified"], PAGES["proof"]]})
 st.session_state.setdefault("day", "2017-06-21")
 with st.sidebar:
-    st.divider()
     st.toggle("Cut the site's internet", key="link_down",
               help="The cloud model becomes unreachable and the operator switches to Muse Glimmer on the site's "
                    "own GPU. Charging never depends on either model.")
@@ -607,7 +741,6 @@ with st.sidebar:
         st.segmented_control("Model calls", ["Replay", "Live"], default="Replay", key="calls", required=True,
                              help="Replay uses the recorded model responses; Live calls the models (billed)")
     else:
-        st.caption("Model calls: **replaying recorded answers**. Live calls need a Meta Model API key "
-                   "(`MODEL_API_KEY` in `.env`).")
-    st.caption("Meta models: Muse Spark 1.3 · Muse Voice Transcribe · Muse Glimmer")
+        st.caption("Replaying real recorded Muse Spark answers.")
+    st.caption("Built on Meta's Muse Spark 1.3 · Muse Voice Transcribe · Muse Glimmer")
 page.run()
