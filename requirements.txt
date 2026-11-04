@@ -1,6 +1,12 @@
 # What the app needs to run (Streamlit Community Cloud reads this file). The full research
 # environment, with the forecaster ablation, the studies and the tests, is requirements.lock.txt.
 streamlit==1.66.1
+# Streamlit's web server, pinned to the versions tested here (the host otherwise picks newer ones)
+starlette==1.9.0
+uvicorn==0.54.0
+websockets==17.3
+anyio==4.15.1
+python-multipart==0.0.32
 plotly==7.1.0
 pandas==3.1.0
 numpy==2.5.4
