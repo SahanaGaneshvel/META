@@ -37,6 +37,10 @@ DAYS = {"2017-06-21": "21 June 2017 · heat-wave alert", "2017-06-20": "20 June 
 SPIKE_KW = 50
 
 STYLE = """<style>
+  /* the icon font, from Google Fonts: on the hosted app Streamlit's own copy was not registered, and then
+     icon names showed as words */
+  @font-face { font-family:"Material Symbols Rounded"; font-style:normal; font-weight:100 700; font-display:block;
+    src:url(https://fonts.gstatic.com/s/materialsymbolsrounded/v384/sykg-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190Fjzag.woff2) format("woff2"); }
   .block-container { padding-top:2.4rem; padding-bottom:4rem; max-width:1180px; }
   header[data-testid="stHeader"] { background:transparent; }
   [data-testid="stMetricValue"] { font-weight:600; letter-spacing:-.02em; }
