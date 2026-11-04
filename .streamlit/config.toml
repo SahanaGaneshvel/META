@@ -21,3 +21,4 @@ toolbarMode = "minimal"
 
 [server]
 maxUploadSize = 50
+enableStaticServing = true  # static/: the camera clip, served as a plain file that never changes between reruns

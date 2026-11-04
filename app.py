@@ -524,7 +524,9 @@ def camera() -> None:
     video = DATA / "video" / "lot_close_5fps.mp4"
     left, right = st.columns([3, 2])
     with left:
-        st.video(str(video))
+        # a static file (static/, server.enableStaticServing): a media-manager URL can vanish mid-load on a rerun
+        st.html('<video src="app/static/lot_close_5fps.mp4" controls muted playsinline preload="metadata" '
+                'style="width:100%;border-radius:14px;border:1px solid #1e293b"></video>')
         st.caption("Public-domain parking-lot footage, 63 seconds; six bays marked as EV bays for illustration.")
     with right:
         st.html("""<div class="hr-card"><h4>What happens when you press the button</h4><ul>
