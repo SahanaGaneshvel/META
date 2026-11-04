@@ -32,11 +32,81 @@
   .intro h1 { font-size:clamp(30px,4.6vw,46px); line-height:1.12; font-weight:600; letter-spacing:-.025em; margin-top:12px; }
   .intro p { color:var(--muted); font-size:17px; margin-top:14px; }
 
-  .tabs { position:sticky; top:0; z-index:5; margin:30px -24px 0; padding:12px 24px; background:rgba(10,15,28,.86);
-          backdrop-filter:blur(10px); border-bottom:1px solid var(--line); display:flex; gap:6px; overflow-x:auto; }
-  .tabs a { padding:7px 14px; border-radius:999px; color:var(--muted); font-size:14px; white-space:nowrap; transition:all .2s; }
-  .tabs a b { color:var(--accent); font-weight:500; margin-right:6px; }
-  .tabs a.on { background:rgba(148,163,184,.10); color:var(--ink); }
+  /* the journey: a rail on the left (the same "limit line" as the logo), chapters, bridges */
+  .rail { position:fixed; left:max(18px, calc(50vw - 700px)); top:50%; transform:translateY(-50%); z-index:6; display:none; }
+  .rail .track { position:absolute; left:5px; top:6px; bottom:6px; width:2px; background:rgba(148,163,184,.16); border-radius:2px; }
+  .rail .fill { position:absolute; left:5px; top:6px; width:2px; height:0; background:var(--accent); border-radius:2px; transition:height .15s linear; }
+  .rail a { position:relative; display:flex; align-items:center; gap:12px; padding:9px 0; color:var(--muted); font-size:12.5px; }
+  .rail a i { width:12px; height:12px; border-radius:99px; border:2px solid rgba(148,163,184,.45); background:var(--bg); flex:none; transition:all .25s; }
+  .rail a span { opacity:0; transform:translateX(-4px); transition:all .25s; white-space:nowrap; }
+  .rail:hover a span, .rail a.on span { opacity:1; transform:none; }
+  .rail a.on { color:var(--ink); } .rail a.on i { border-color:var(--accent); background:var(--accent); box-shadow:0 0 0 5px rgba(94,234,212,.14); }
+  .rail a.done i { border-color:var(--accent); }
+  @media (min-width:1360px) { .rail { display:block; } }
+  .topbar { position:fixed; top:0; left:0; right:0; z-index:6; height:44px; display:flex; align-items:center; gap:12px; padding:0 18px;
+            background:rgba(10,15,28,.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); font-size:13px; color:var(--muted);
+            transform:translateY(-100%); transition:transform .3s; }
+  .topbar.show { transform:none; } .topbar b { color:var(--ink); font-weight:500; }
+  .topbar .bar2 { position:absolute; left:0; bottom:-1px; height:2px; background:var(--accent); width:0; }
+  @media (min-width:1360px) { .topbar { display:none; } }
+
+  .hero { min-height:calc(100vh - 90px); display:grid; grid-template-columns:1.25fr 1fr; gap:56px; align-items:center; padding:20px 0 40px; }
+  .hero h1 { font-size:clamp(34px,5vw,58px); line-height:1.06; font-weight:600; letter-spacing:-.03em; margin-top:14px; }
+  .hero h1 span { color:var(--accent); }
+  .hero p { color:var(--muted); font-size:18px; margin-top:18px; max-width:560px; }
+  .hero .cta { display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; }
+  .btn { padding:12px 20px; border-radius:10px; font-weight:500; font-size:15px; border:1px solid var(--line); transition:all .2s; display:inline-block; }
+  .btn.main { background:var(--accent-strong); color:#06201c; border-color:transparent; } .btn.main:hover { background:var(--accent); }
+  .btn:hover { transform:translateY(-1px); }
+  .facts { display:grid; gap:10px; }
+  .fact { display:grid; grid-template-columns:92px 1fr; gap:14px; padding:16px 18px; border-radius:14px; border:1px solid var(--line);
+          background:rgba(15,22,38,.6); }
+  .fact b { color:var(--accent); font-size:12px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; padding-top:2px; }
+  .fact span { font-size:15px; color:#cbd3e1; } .fact small { display:block; color:var(--muted); font-size:12.5px; margin-top:2px; }
+  .scroll-hint { margin-top:34px; color:var(--muted); font-size:13px; display:flex; align-items:center; gap:10px; }
+  .scroll-hint i { width:1px; height:34px; background:linear-gradient(var(--accent), transparent); animation:drip 1.8s ease-in-out infinite; }
+  @keyframes drip { 0% { transform:scaleY(0); transform-origin:top; } 50% { transform:scaleY(1); transform-origin:top; } 51% { transform-origin:bottom; } 100% { transform:scaleY(0); transform-origin:bottom; } }
+
+  .chapter-no { font-variant-numeric:tabular-nums; }
+  .bridge { margin:56px 0 0; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px 24px; border-radius:16px;
+            border:1px solid var(--line); background:linear-gradient(90deg, rgba(45,212,191,.06), transparent 60%); transition:all .25s; }
+  .bridge:hover { border-color:rgba(94,234,212,.35); transform:translateY(-2px); }
+  .bridge small { color:var(--accent); font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+  .bridge b { display:block; font-size:19px; font-weight:600; margin-top:2px; } .bridge em { font-style:normal; color:var(--muted); font-size:14.5px; }
+  .bridge .go { width:42px; height:42px; border-radius:99px; border:1px solid var(--line); display:grid; place-items:center; flex:none; font-size:18px; color:var(--accent); }
+
+  .reveal { opacity:0; transform:translateY(22px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity:1; transform:none; }
+  .reveal.d1 { transition-delay:.1s } .reveal.d2 { transition-delay:.2s } .reveal.d3 { transition-delay:.3s }
+
+  /* chapter 06: in the real world */
+  .flow { width:100%; height:auto; display:block; }
+  .flow text { font-family:Inter, "Segoe UI", sans-serif; }
+  .node rect { fill:rgba(15,22,38,.95); stroke:rgba(148,163,184,.28); }
+  .node.core rect { stroke:rgba(94,234,212,.6); fill:rgba(45,212,191,.07); }
+  .node.meta rect { stroke:rgba(129,140,248,.55); fill:rgba(129,140,248,.07); }
+  .wire { fill:none; stroke:rgba(148,163,184,.28); stroke-width:1.5; }
+  .roll { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:16px; position:relative; }
+  .roll .r { padding:20px; position:relative; }
+  .roll .r .n { width:28px; height:28px; border-radius:99px; display:grid; place-items:center; font-size:13px; font-weight:600;
+                background:rgba(45,212,191,.12); color:var(--accent); border:1px solid rgba(94,234,212,.35); }
+  .roll .r h4 { font-size:17px; font-weight:600; margin-top:12px; } .roll .r p { color:#cbd3e1; font-size:14.5px; margin-top:6px; }
+  .roll .r .tag { display:inline-block; margin-top:12px; font-size:12px; padding:3px 9px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+  .roll .r .tag.ok { color:var(--accent); border-color:rgba(94,234,212,.35); }
+  .three { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:14px; }
+  .three .c { padding:20px; } .three h4 { font-size:13px; color:var(--accent); letter-spacing:.1em; text-transform:uppercase; font-weight:500; }
+  .three ul { margin:10px 0 0 18px; padding:0; color:#cbd3e1; font-size:14.5px; } .three li { margin:5px 0; }
+  .honest { display:grid; grid-template-columns:1fr 1fr; gap:0; margin-top:14px; }
+  .honest > div { padding:20px 22px; } .honest > div + div { border-left:1px solid var(--line); }
+  .honest h4 { font-size:15px; font-weight:600; } .honest ul { margin:8px 0 0 18px; padding:0; color:#cbd3e1; font-size:14.5px; } .honest li { margin:4px 0; }
+
+  /* chapter 07: what we built */
+  .built { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .built .b { padding:18px; } .built .b h4 { font-size:15.5px; font-weight:600; } .built .b p { color:var(--muted); font-size:13.5px; margin-top:4px; line-height:1.5; }
+  .built .b em { display:block; font-style:normal; color:var(--accent); font-size:12.5px; margin-top:10px; }
+  .totals { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:12px; }
+  .totals div { padding:18px; text-align:center; } .totals b { display:block; font-size:28px; font-weight:600; letter-spacing:-.02em; }
+  .totals span { color:var(--muted); font-size:13px; }
 
   section.part { padding:72px 0 8px; scroll-margin-top:60px; }
   .part-head { display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:end; margin-bottom:26px; }
@@ -144,15 +214,20 @@
   footer a { color:var(--ink); }
 
   @media (max-width:900px) {
-    .part-head, .how, .ops, .proof { grid-template-columns:1fr; }
+    .part-head, .how, .ops, .proof, .hero, .honest { grid-template-columns:1fr; }
+    .roll, .three, .built, .totals { grid-template-columns:1fr 1fr; }
+    .honest > div + div { border-left:0; border-top:1px solid var(--line); }
+    .hero { min-height:auto; padding-top:30px; }
     .stats, .tiles { grid-template-columns:1fr 1fr; }
     .bills { grid-template-columns:1fr; }
     header nav a:not(.keep) { display:none; }
   }
-  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; scroll-behavior:auto !important; } .reveal { opacity:1; transform:none; } }
 </style>
 </head>
 <body>
+<nav class="rail" id="rail" aria-label="Chapters"><div class="track"></div><div class="fill" id="railFill"></div></nav>
+<div class="topbar" id="topbar"><span id="topLabel"></span><div class="bar2" id="topFill"></div></div>
 <div class="wrap">
   <header>
     <a class="logo" href="../">
@@ -162,32 +237,42 @@
     <nav><a href="../">Overview</a><a class="here" href="./">Demo</a><a class="keep" href="https://github.com/SahanaGaneshvel/META">GitHub</a></nav>
   </header>
 
-  <div class="intro">
-    <div class="eyebrow">See it work</div>
-    <h1>One real day, step by step.</h1>
-    <p>21 June 2017 was a heat-wave alert day in California. Here is a real building's metered load that day, with 24 chargers
-      used by real Palo Alto drivers, billed on the utility's real tariff. Scroll through the problem, how Headroom decides every
-      15 minutes, the AI operator, and the proof.</p>
-  </div>
+  <section class="hero" id="start" data-chapter="Start">
+    <div class="reveal in">
+      <div class="eyebrow">Interactive walkthrough · real data</div>
+      <h1>One building. One hot day. <span>24 chargers.</span></h1>
+      <p>Follow a real building through the 21 June 2017 heat wave. See why EV chargers and buildings collide on the grid, how
+        Headroom fits more chargers on the connection the building already has, and how an AI operator built on Meta's Muse Spark
+        runs it.</p>
+      <div class="cta"><a class="btn main" href="#plain">Start the walkthrough</a><a class="btn" href="#proof">Skip to the results</a></div>
+      <div class="scroll-hint"><i></i>About 5 minutes · 7 chapters</div>
+    </div>
+    <div class="facts">
+      <div class="fact reveal d1"><b>Building</b><span>A UC Berkeley building, metered every hour<small>Building Data Genome 2, 2016–2017</small></span></div>
+      <div class="fact reveal d2"><b>Drivers</b><span>18,893 real charging sessions<small>City of Palo Alto, WEBSTER garage</small></span></div>
+      <div class="fact reveal d3"><b>Bill</b><span>The utility's own published tariff<small>City of Palo Alto E-4 TOU, 2026 rates</small></span></div>
+      <div class="fact reveal d3"><b>AI</b><span>Meta's Muse Spark, Voice Transcribe and Glimmer<small>real recorded answers, every number checked</small></span></div>
+    </div>
+  </section>
 
-  <nav class="tabs" id="tabs">
-    <a href="#plain" class="on"><b>0</b>In plain words</a><a href="#problem"><b>1</b>The problem</a><a href="#how"><b>2</b>How it works</a>
-    <a href="#operator"><b>3</b>The AI operator</a><a href="#proof"><b>4</b>The proof</a>
-  </nav>
-
-
-  <section class="part" id="plain" style="padding-top:40px">
-    <div class="card story">
+  <section class="part" id="plain" data-chapter="The idea">
+    <div class="part-head reveal">
+      <div><div class="eyebrow">Chapter 01 · The idea in one minute</div>
+        <h2>Six pictures, no jargon.</h2></div>
+      <p>Everything else on this page builds on these six steps. They play on their own; click any bar to jump.</p>
+    </div>
+    <div class="card story reveal d1">
       <div class="stage"><svg id="storySvg" viewBox="0 0 560 300" role="img" aria-label="Illustration"></svg></div>
       <div class="words"><div class="n" id="storyN"></div><h3 id="storyH"></h3><p id="storyP"></p>
         <div class="nav"><div class="pills" id="storyPills"></div><button class="next" id="storyNext">Next →</button></div></div>
     </div>
+    <a class="bridge reveal" href="#problem"><div><small>Next</small><b>The problem, on the real data</b><em>What 24 chargers do to this building's evening.</em></div><span class="go">↓</span></a>
   </section>
 
   <!-- 1 -->
-  <section class="part" id="problem">
+  <section class="part" id="problem" data-chapter="The problem">
     <div class="part-head">
-      <div><div class="eyebrow">1 · The problem</div>
+      <div><div class="eyebrow">Chapter 02 · The problem</div>
         <h2>Chargers that can't see the building pile onto its peak.</h2></div>
       <p>Standard smart charging splits a fixed charger budget between the cars plugged in. It never sees the building, so
         on a hot evening it adds its load right on top of the building's peak, the 15 minutes the utility bills.</p>
@@ -199,17 +284,18 @@
         <span id="probLegendEv" style="opacity:.35"><i style="background:var(--standard)"></i>charging, standard smart charging</span>
         <span><i style="background:var(--amber);opacity:.5"></i>4–9 pm, the priciest demand window</span></div>
     </div>
-    <div class="stats">
+    <div class="stats reveal d1">
       <div class="card stat"><div class="k">The building's evening peak</div><div class="v" id="pkB">–</div><div class="s">highest 15 minutes, 4–9 pm</div></div>
       <div class="card stat"><div class="k">With standard smart charging</div><div class="v coral" id="pkS">–</div><div class="s" id="pkAdd">–</div></div>
       <div class="card stat"><div class="k">Every kW of the month's peak costs</div><div class="v" id="perKw">–</div><div class="s">per month, Palo Alto E-4 summer tariff</div></div>
     </div>
+    <a class="bridge reveal" href="#how"><div><small>Next</small><b>How Headroom decides</b><em>The same day, replayed every 15 minutes.</em></div><span class="go">↓</span></a>
   </section>
 
   <!-- 2 -->
-  <section class="part" id="how">
+  <section class="part" id="how" data-chapter="How it decides">
     <div class="part-head">
-      <div><div class="eyebrow">2 · How Headroom works</div>
+      <div><div class="eyebrow">Chapter 03 · How Headroom decides</div>
         <h2>Every 15 minutes: see, plan, guarantee, send.</h2></div>
       <p>Press play. Headroom forecasts the building, charges in the room under the peak the month has already paid for, checks
         the grid limit, and sends each charger its power. The bill counters run for the same cars under both approaches.</p>
@@ -248,12 +334,13 @@
         <div class="s4"><h4><span>4</span>Send to the chargers</h4><p id="st4">–</p><div class="grid24" id="grid24"></div></div>
       </div>
     </div>
+    <a class="bridge reveal" href="#operator"><div><small>Next</small><b>The AI operator</b><em>Ask Meta's Muse Spark about this site, and cut the internet.</em></div><span class="go">↓</span></a>
   </section>
 
   <!-- 3 -->
-  <section class="part" id="operator">
+  <section class="part" id="operator" data-chapter="The AI operator">
     <div class="part-head">
-      <div><div class="eyebrow">3 · The AI operator</div>
+      <div><div class="eyebrow">Chapter 04 · The AI operator</div>
         <h2>The site manager just asks. Meta's Muse Spark answers.</h2></div>
       <p>Muse Spark can only act through checked tools. It never touches the chargers, and every number it says is traced back
         to a tool result. These are its real recorded answers. Cut the internet and Meta's open-weight Muse Glimmer answers on site.</p>
@@ -262,12 +349,13 @@
       <div class="qs" id="qs"></div>
       <div class="card chat" id="chat"></div>
     </div>
+    <a class="bridge reveal" href="#proof"><div><small>Next</small><b>The proof</b><em>Months it never saw, 49 more buildings, another utility.</em></div><span class="go">↓</span></a>
   </section>
 
   <!-- 4 -->
-  <section class="part" id="proof">
+  <section class="part" id="proof" data-chapter="The proof">
     <div class="part-head">
-      <div><div class="eyebrow">4 · The proof</div>
+      <div><div class="eyebrow">Chapter 05 · The proof</div>
         <h2 id="proofTitle">–</h2></div>
       <p>Six held-out summer months that nothing was tuned on, three resampled fleets each, real data only. Then the same check
         on dozens of other real buildings, a second utility's tariff, and the protocol real chargers speak.</p>
@@ -281,7 +369,97 @@
         <div class="sub">Chargers each fits on its existing connection. Above the line, Headroom fits more.</div>
         <svg class="chart" id="bChart" viewBox="0 0 520 300" role="img" aria-label="Buildings scatter"></svg></div>
     </div>
-    <div class="tiles" id="tiles"></div>
+    <div class="tiles reveal" id="tiles"></div>
+    <a class="bridge reveal" href="#world"><div><small>Next</small><b>In the real world</b><em>How a site would actually adopt it, step by step.</em></div><span class="go">↓</span></a>
+  </section>
+
+  <section class="part" id="world" data-chapter="In the real world">
+    <div class="part-head reveal">
+      <div><div class="eyebrow">Chapter 06 · In the real world</div>
+        <h2>A small box on site, the chargers a site already has, and an AI to talk to.</h2></div>
+      <p>Headroom runs on a small computer next to the building's meter. It reads the meter, plans, and sends each charger its
+        limit over OCPP, the open protocol commercial chargers already speak. The AI sits beside the control loop, never inside it.</p>
+    </div>
+    <div class="card pad reveal d1">
+      <svg class="flow" viewBox="0 0 1000 400" role="img" aria-label="How Headroom connects on a real site">
+        <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="rgba(148,163,184,.6)"/></marker></defs>
+        <path id="w1" class="wire" d="M178 92 H392" marker-end="url(#arr)"/>
+        <path id="w2" class="wire" d="M608 92 H822" marker-end="url(#arr)"/>
+        <path id="w3" class="wire" d="M500 26 V58" marker-end="url(#arr)" />
+        <path id="w4" class="wire" d="M500 292 V136" marker-end="url(#arr)"/>
+        <path id="w5" class="wire" d="M178 318 H392" marker-end="url(#arr)"/>
+        <path id="w6" class="wire" d="M822 318 H608" marker-end="url(#arr)"/>
+        <path id="w7" class="wire" d="M392 210 H330" stroke-dasharray="4 5"/>
+        <g class="node"><rect x="20" y="58" width="158" height="68" rx="12"/><text x="99" y="88" fill="#e8ecf4" font-size="15" text-anchor="middle">Building meter</text><text x="99" y="108" fill="#8b96aa" font-size="12" text-anchor="middle">reading every 15 min</text></g>
+        <g class="node core"><rect x="392" y="58" width="216" height="78" rx="14"/><text x="500" y="90" fill="#e8ecf4" font-size="16" font-weight="600" text-anchor="middle">Headroom controller</text><text x="500" y="112" fill="#5eead4" font-size="12" text-anchor="middle">forecast · plan · safety layer</text></g>
+        <g class="node"><rect x="822" y="58" width="158" height="68" rx="12"/><text x="901" y="88" fill="#e8ecf4" font-size="15" text-anchor="middle">24 chargers</text><text x="901" y="108" fill="#8b96aa" font-size="12" text-anchor="middle">the site's own, via OCPP</text></g>
+        <text x="500" y="18" fill="#8b96aa" font-size="12" text-anchor="middle">grid alerts (CAISO Flex Alerts)</text>
+        <g class="node meta"><rect x="392" y="282" width="216" height="72" rx="14"/><text x="500" y="314" fill="#e8ecf4" font-size="16" font-weight="600" text-anchor="middle">Muse Spark</text><text x="500" y="335" fill="#a5b4fc" font-size="12" text-anchor="middle">Meta Model API · the operator</text></g>
+        <g class="node"><rect x="20" y="284" width="158" height="68" rx="12"/><text x="99" y="314" fill="#e8ecf4" font-size="15" text-anchor="middle">Utility tariff</text><text x="99" y="334" fill="#8b96aa" font-size="12" text-anchor="middle">the published PDF</text></g>
+        <g class="node"><rect x="822" y="284" width="158" height="68" rx="12"/><text x="901" y="314" fill="#e8ecf4" font-size="15" text-anchor="middle">Site manager</text><text x="901" y="334" fill="#8b96aa" font-size="12" text-anchor="middle">asks by text or voice</text></g>
+        <g class="node meta"><rect x="160" y="178" width="170" height="64" rx="12"/><text x="245" y="206" fill="#e8ecf4" font-size="14.5" text-anchor="middle">Muse Glimmer</text><text x="245" y="226" fill="#a5b4fc" font-size="11.5" text-anchor="middle">on-site GPU, if internet drops</text></g>
+        <text x="285" y="84" fill="#8b96aa" font-size="12" text-anchor="middle">building load</text>
+        <text x="715" y="84" fill="#5eead4" font-size="12" text-anchor="middle">a power limit per charger</text>
+        <text x="510" y="220" fill="#a5b4fc" font-size="12">verified rates, checked answers</text>
+        <text x="285" y="310" fill="#8b96aa" font-size="12" text-anchor="middle">read and verified</text>
+        <text x="715" y="310" fill="#8b96aa" font-size="12" text-anchor="middle">questions · answers</text>
+        <g fill="#5eead4"><circle r="4"><animateMotion dur="2.6s" repeatCount="indefinite"><mpath href="#w1"/></animateMotion></circle>
+          <circle r="4"><animateMotion dur="2.6s" begin="1.3s" repeatCount="indefinite"><mpath href="#w2"/></animateMotion></circle>
+          <circle r="3"><animateMotion dur="2.2s" repeatCount="indefinite"><mpath href="#w3"/></animateMotion></circle></g>
+        <g fill="#a5b4fc"><circle r="3.5"><animateMotion dur="3s" repeatCount="indefinite"><mpath href="#w4"/></animateMotion></circle>
+          <circle r="3.5"><animateMotion dur="3s" begin=".8s" repeatCount="indefinite"><mpath href="#w5"/></animateMotion></circle>
+          <circle r="3.5"><animateMotion dur="3s" begin="1.6s" repeatCount="indefinite"><mpath href="#w6"/></animateMotion></circle></g>
+      </svg>
+      <p style="color:var(--muted);font-size:13.5px;margin-top:8px">Teal: the control loop, which runs on site every 15 minutes with no AI and no internet needed.
+        Indigo: Meta's models, which read documents and talk to people. Every limit a charger receives expires after 15 minutes,
+        so if anything fails the chargers fall back to the installer's safe default.</p>
+    </div>
+
+    <div class="roll">
+      <div class="card r reveal"><div class="n">1</div><h4>Check</h4><p>Upload a year of meter data, such as the utility's Green Button
+        export. Headroom Check simulates real drivers on it and says how many chargers fit. No hardware, no commitment.</p>
+        <span class="tag ok">built · Headroom Check</span></div>
+      <div class="card r reveal d1"><div class="n">2</div><h4>Shadow</h4><p>Connect the live meter and the charger network. Headroom plans
+        alongside the existing system for a few weeks and reports what it would have done and saved.</p>
+        <span class="tag">next · pilot site</span></div>
+      <div class="card r reveal d2"><div class="n">3</div><h4>Control</h4><p>Headroom sends each charger its limit over OCPP. The safety
+        layer runs locally and every limit expires, so control fails safe.</p>
+        <span class="tag ok">built · OCPP 1.6J, tested on 24 simulated chargers</span></div>
+      <div class="card r reveal d3"><div class="n">4</div><h4>Expand</h4><p>Install the extra chargers the check said fit, on the same
+        connection, instead of waiting for a grid upgrade.</p>
+        <span class="tag">the payoff · 48 instead of 36 here</span></div>
+    </div>
+
+    <div class="three">
+      <div class="card c reveal"><h4>Who uses it</h4><ul><li>Owners of offices, malls and campuses adding chargers</li>
+        <li>Charge-point operators running many sites</li><li>Fleet depots charging vans overnight</li></ul></div>
+      <div class="card c reveal d1"><h4>Why they pay</h4><ul><li>Delay or avoid a costly service upgrade</li>
+        <li>Lower demand charges on the same energy</li><li>More chargers, so more drivers served and more charging revenue</li></ul></div>
+      <div class="card c reveal d2"><h4>What it needs</h4><ul><li>A meter reading every 15 minutes</li>
+        <li>Chargers that speak OCPP, as most commercial chargers do</li><li>A small on-site computer; a GPU only for offline AI</li></ul></div>
+    </div>
+
+    <div class="card honest reveal">
+      <div><h4 class="teal">Already shown</h4><ul><li>Months of real recorded data, held out from tuning</li>
+        <li>49 more real buildings, and a second utility's tariff</li><li>Charger commands over real OCPP messages, accepted 480 of 480</li>
+        <li>Meta's models reading real tariffs and answering with checked numbers</li></ul></div>
+      <div><h4 class="coral">Still to prove</h4><ul><li>A pilot on physical chargers at a real site</li>
+        <li>Live meter feeds from utility data services</li><li>More utilities' tariffs, OCPP 2.0.1, batteries and solar</li></ul></div>
+    </div>
+    <a class="bridge reveal" href="#built"><div><small>Next</small><b>What we built</b><em>Every piece behind this page, with the evidence.</em></div><span class="go">↓</span></a>
+  </section>
+
+  <section class="part" id="built" data-chapter="What we built">
+    <div class="part-head reveal">
+      <div><div class="eyebrow">Chapter 07 · What we built</div>
+        <h2>Twelve pieces, each with its evidence.</h2></div>
+      <p>All built during the hackathon. Every number on this page is produced by a script in the repository from real data,
+        and anyone can re-run it.</p>
+    </div>
+    <div class="built" id="builtGrid"></div>
+    <div class="totals reveal" id="totals"></div>
+    <a class="bridge reveal" href="https://github.com/SahanaGaneshvel/META"><div><small>Open source</small><b>Read the code and reproduce every result</b>
+      <em>github.com/SahanaGaneshvel/META · MIT licence</em></div><span class="go">↗</span></a>
   </section>
 
   <footer>
@@ -305,7 +483,7 @@ function el(tag, attrs = {}, parent) {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
 
-fetch("data.json").then(r => r.json()).then(D => { plain(D); problem(D); how(D); operator(D); proof(D); tabs(); });
+fetch("data.json").then(r => r.json()).then(D => { plain(D); problem(D); how(D); operator(D); proof(D); built(D); journey(); });
 
 /* a day chart: x = 96 quarter hours, y = kW */
 function dayFrame(svg, D, { y0 = 450, y1 = 1050, h = 340, left = 46, bottom = 30, W = 1000, fs = 12 } = {}) {
@@ -595,13 +773,52 @@ function proof(D) {
   $("#tiles").innerHTML = tiles.map(([v, k]) => `<div class="card tile"><div class="v">${esc(v)}</div><div class="k">${esc(k)}</div></div>`).join("");
 }
 
-/* sticky tabs follow the scroll */
-function tabs() {
-  const links = [...document.querySelectorAll("#tabs a")];
-  new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.hash === "#" + e.target.id)); }),
-                           { rootMargin: "-45% 0px -50% 0px" }).observe($("#problem"));
-  ["#plain", "#how", "#operator", "#proof"].forEach(id => new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.hash === id)); }),
-                                                                         { rootMargin: "-45% 0px -50% 0px" }).observe($(id)));
+/* 07 · what we built */
+function built(D) {
+  const R = D.results, tf = R.tariffs;
+  const items = [
+    ["Data pipeline", "Real sessions and real meters, cleaned into one 15-minute table.", "18,893 sessions · 2 years"],
+    ["Simulator", "Every car, every 15 minutes, with arrivals it can't foresee.", "the same sessions for every method"],
+    ["Forecast", "The building's next 24 hours with a calibrated likely range.", "a trained model tested too: no gain"],
+    ["Planner", "A linear program re-solved every 15 minutes; drivers come first.", "HiGHS solver"],
+    ["Safety layer", "The last word on every command; nothing above it can override it.", "10,000 random and hostile plans"],
+    ["Tariff reader", "Muse Spark turns a tariff PDF into rates, accepted only if bills match.", `${tf["cpau-e-4-tou-2026"].fields} · ${tf["cpau-e-7-tou-2026"].fields} · ${tf["pge-b-19-2026"].fields} fields`],
+    ["AI operator", "Muse Spark answers through six checked tools.", "every number traced, or flagged"],
+    ["Offline backup", "Muse Glimmer takes over on the site's own GPU.", "recorded on a Kaggle T4 GPU"],
+    ["Voice", "Spoken requests through Muse Voice Transcribe.", "Meta Model API"],
+    ["Headroom Check", "Any building's meter export to a charger count.", "edge cases tested"],
+    ["Studies", `${R.portfolio.n} more buildings, a tighter connection, a second utility.`, `more chargers in ${Math.round(R.portfolio.more * 100)}%`],
+    ["OCPP bridge", "Each decision as a charger command.", `${R.ocpp.accepted}/${R.ocpp.messages} accepted, ${R.ocpp.max_limit_mismatch_w} W off`],
+  ];
+  $("#builtGrid").innerHTML = items.map(([h, p, e], i) => `<div class="card b reveal d${i % 4}"><h4>${esc(h)}</h4><p>${esc(p)}</p><em>${esc(e)}</em></div>`).join("");
+  const totals = [["35", "automated tests"], ["3", "Meta models"], ["$0.49", "spent on model calls in total"], ["0", "times over the grid limit"]];
+  $("#totals").innerHTML = totals.map(([v, k]) => `<div class="card"><b>${v}</b><span>${k}</span></div>`).join("");
+  document.querySelectorAll("#builtGrid .reveal, #totals").forEach(e => revealer.observe(e));
+}
+
+/* the journey: chapter rail, progress, reveal-on-arrival */
+const revealer = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); revealer.unobserve(e.target); } }),
+                                          { rootMargin: "0px 0px -12% 0px" });
+function journey() {
+  const chapters = [...document.querySelectorAll("[data-chapter]")];
+  const rail = $("#rail");
+  chapters.forEach((c, i) => rail.insertAdjacentHTML("beforeend",
+    `<a href="#${c.id}"><i></i><span><span class="chapter-no">${String(i).padStart(2, "0")}</span> · ${c.dataset.chapter}</span></a>`));
+  const links = [...rail.querySelectorAll("a")];
+  function current(i) {
+    links.forEach((a, n) => { a.classList.toggle("on", n === i); a.classList.toggle("done", n < i); });
+    $("#topLabel").innerHTML = i ? `Chapter ${String(i).padStart(2, "0")} of ${chapters.length - 1} · <b>${chapters[i].dataset.chapter}</b>` : "";
+  }
+  chapters.forEach((c, i) => new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) current(i); }),
+                                                    { rootMargin: "-40% 0px -55% 0px" }).observe(c));
+  const onScroll = () => {
+    const p = Math.min(1, scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight));
+    $("#railFill").style.height = `calc(${p} * (100% - 12px))`;
+    $("#topFill").style.width = (p * 100) + "%";
+    $("#topbar").classList.toggle("show", scrollY > innerHeight * .6);
+  };
+  addEventListener("scroll", onScroll, { passive: true }); onScroll(); current(0);
+  document.querySelectorAll(".reveal:not(.in)").forEach(e => revealer.observe(e));
 }
 </script>
 </body>
